@@ -12,8 +12,18 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 ICON_RE = re.compile(r"^[a-z0-9_-]+:[a-z0-9-]+$")
 
-BG_PRESETS = ["galaxy", "ocean", "sunset", "forest", "chalkboard", "notebook", "candy", "aurora"]
-FONTS = ["Bebas Neue", "Bangers", "Baloo 2", "Fredoka", "Patrick Hand", "Nunito", "system"]
+BG_PRESETS = [
+    "galaxy", "ocean", "sunset", "forest", "chalkboard", "notebook", "candy", "aurora",
+    "notebook_doodle", "chalk_formulas", "school_supplies", "letters_numbers",
+    "football", "dinosaurs", "robots", "race_cars", "rockets", "pirates", "superheroes",
+    "unicorns", "princess", "flowers", "butterflies", "kittens", "mermaid", "candy_hearts",
+]
+ANIMATIONS = [
+    "none", "stars", "snow", "bubbles", "confetti", "fireflies", "hearts", "balloons", "leaves", "flowers",
+    "school", "abc", "space", "sport", "dinos", "cars", "butterflies", "unicorns", "sea", "music",
+]
+# Fonturile vin din biblioteca Google Fonts din interfață; aici doar verificăm că numele e „curat”.
+FONT_RE = re.compile(r"^[A-Za-z0-9 ]{1,40}$")
 
 DEFAULT_DAY_COLORS = {
     "mon": "#63c5ee",
@@ -36,11 +46,23 @@ APPEARANCE_SPEC: dict[str, tuple[str, Any, Any]] = {
     "bg_size": ("enum", "cover", ["cover", "contain", "tile"]),
     "bg_dim": ("num", 0.0, (0.0, 0.9)),
     "bg_blur": ("num", 0.0, (0.0, 20.0)),
-    "stars": ("bool", True, None),
+    "animation": ("enum", "stars", ANIMATIONS),
+    "fx_amount": ("num", 24.0, (4.0, 80.0)),
+    "fx_speed": ("num", 1.0, (0.25, 3.0)),
+    "class_font": ("font", "Bebas Neue", None),
+    "class_text": ("color", "#ffffff", None),
+    "class_bg": ("color", "#ffffff", None),
+    "class_bg_opacity": ("num", 0.0, (0.0, 1.0)),
+    "class_border": ("color", "#f6ae3b", None),
+    "class_border_width": ("num", 2.0, (0.0, 8.0)),
+    "class_radius": ("num", 14.0, (0.0, 40.0)),
+    "class_size": ("num", 1.0, (0.5, 2.0)),
+    "class_blur": ("bool", False, None),
+    "class_shadow": ("bool", True, None),
     "title_color": ("color", "#f6ae3b", None),
     "text_color": ("color", "#ffffff", None),
-    "title_font": ("enum", "Bebas Neue", FONTS),
-    "body_font": ("enum", "Baloo 2", FONTS),
+    "title_font": ("font", "Bebas Neue", None),
+    "body_font": ("font", "Baloo 2", None),
     "layout": ("enum", "rows", ["rows", "timeline"]),
     "cell_style": ("enum", "stripe", ["stripe", "tinted", "solid"]),
     "cell_radius": ("num", 14.0, (0.0, 30.0)),
@@ -229,6 +251,8 @@ def sanitize_schedule(value: Any, subject_ids: set[str]) -> dict[str, list[dict[
 
 def sanitize_appearance(value: Any) -> dict[str, Any]:
     value = value if isinstance(value, dict) else {}
+    if "animation" not in value and "stars" in value:  # date salvate înainte de v1.4
+        value = {**value, "animation": "stars" if _bool(value["stars"], True) else "none"}
     result: dict[str, Any] = {}
     for key, (kind, default, extra) in APPEARANCE_SPEC.items():
         raw = value.get(key, default)
@@ -236,6 +260,8 @@ def sanitize_appearance(value: Any) -> dict[str, Any]:
             result[key] = _str(raw, extra)
         elif kind == "enum":
             result[key] = raw if raw in extra else default
+        elif kind == "font":
+            result[key] = raw if isinstance(raw, str) and FONT_RE.match(raw) else default
         elif kind == "color":
             result[key] = _color(raw, default)
         elif kind == "num":

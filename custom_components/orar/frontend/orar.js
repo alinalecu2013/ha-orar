@@ -4,7 +4,7 @@
  *  <orar-panel>        panoul din sidebar (editor complet)
  *  <orar-card>         card Lovelace (week | today | now | backpack)
  */
-const ORAR_VERSION = "1.3.0";
+const ORAR_VERSION = "1.4.0";
 const BASE_URL = new URL(".", import.meta.url).href;
 
 const DAYS = [
@@ -17,46 +17,133 @@ const DAYS = [
 const DAY_KEYS = DAYS.map((d) => d.key);
 const DAY_NAME = Object.fromEntries(DAYS.map((d) => [d.key, d.name]));
 const MONTHS = ["ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sep", "oct", "nov", "dec"];
-const FONT_LIST = ["Bebas Neue", "Bangers", "Baloo 2", "Fredoka", "Patrick Hand", "Nunito", "system"];
+/* Biblioteca de fonturi (Google Fonts, încărcate doar când sunt folosite). w = grosimi disponibile. */
+const FONT_GROUPS = [
+  ["🎬 Titluri mari", [
+    ["Bebas Neue"], ["Bangers"], ["Anton"], ["Oswald", "400;700"], ["Luckiest Guy"], ["Titan One"], ["Lilita One"],
+    ["Bungee"], ["Russo One"], ["Righteous"], ["Alfa Slab One"], ["Bowlby One SC"], ["Rubik Mono One"], ["Black Ops One"],
+    ["Archivo Black"], ["Passion One", "400;700"], ["Staatliches"], ["Teko", "400;700"],
+  ]],
+  ["🧸 Rotunjite, pentru copii", [
+    ["Baloo 2", "400;700"], ["Fredoka", "400;700"], ["Nunito", "400;700"], ["Comfortaa", "400;700"], ["Quicksand", "400;700"],
+    ["Varela Round"], ["M PLUS Rounded 1c", "400;700"], ["Mali", "400;700"], ["Chewy"], ["Bubblegum Sans"], ["Sniglet", "400;800"],
+    ["Carter One"], ["Grandstander", "400;700"], ["Itim"],
+  ]],
+  ["✍️ Scris de mână", [
+    ["Patrick Hand"], ["Caveat", "400;700"], ["Indie Flower"], ["Shadows Into Light"], ["Gloria Hallelujah"], ["Amatic SC", "400;700"],
+    ["Kalam", "400;700"], ["Architects Daughter"], ["Schoolbell"], ["Coming Soon"], ["Gochi Hand"], ["Handlee"], ["Sriracha"],
+    ["Permanent Marker"], ["Rock Salt"], ["Covered By Your Grace"],
+  ]],
+  ["💫 Elegante și caligrafice", [
+    ["Pacifico"], ["Lobster"], ["Dancing Script", "400;700"], ["Satisfy"], ["Great Vibes"], ["Cookie"], ["Courgette"],
+    ["Kaushan Script"], ["Sacramento"], ["Playfair Display", "400;700"], ["Abril Fatface"], ["Cinzel", "400;700"],
+  ]],
+  ["🎮 Distractive", [
+    ["Press Start 2P"], ["Orbitron", "400;700"], ["Audiowide"], ["Monoton"], ["Creepster"], ["Fredericka the Great"],
+    ["Bungee Shade"], ["Rampart One"], ["Silkscreen", "400;700"], ["Special Elite"], ["Nosifer"], ["Faster One"],
+  ]],
+  ["📄 Clasice", [
+    ["Roboto", "400;700"], ["Open Sans", "400;700"], ["Lato", "400;700"], ["Montserrat", "400;700"], ["Poppins", "400;700"],
+    ["Raleway", "400;700"], ["Ubuntu", "400;700"], ["Inter", "400;700"], ["Merriweather", "400;700"], ["Lora", "400;700"],
+    ["Roboto Slab", "400;700"], ["Space Grotesk", "400;700"], ["Source Code Pro", "400;700"],
+  ]],
+];
+const FONT_WEIGHTS = Object.fromEntries(FONT_GROUPS.flatMap(([, list]) => list.map(([n, w]) => [n, w || ""])));
+const FONT_LIST = [...Object.keys(FONT_WEIGHTS), "system"];
 
-(function loadFonts() {
-  if (document.getElementById("orar-fonts")) return;
+/** Încarcă un font Google o singură dată (fișierele se descarcă abia când e folosit). */
+function loadFont(name) {
+  if (!name || name === "system" || !(name in FONT_WEIGHTS)) return;
+  const id = `orar-font-${slugify(name)}`;
+  if (document.getElementById(id)) return;
   const link = document.createElement("link");
-  link.id = "orar-fonts";
+  link.id = id;
   link.rel = "stylesheet";
-  link.href =
-    "https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Bangers&family=Bebas+Neue" +
-    "&family=Fredoka:wght@400;600&family=Nunito:wght@400;700;800&family=Patrick+Hand&display=swap";
+  const w = FONT_WEIGHTS[name];
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, "+")}${w ? `:wght@${w}` : ""}&display=swap`;
   document.head.appendChild(link);
-})();
+}
+/** Grosimea pentru titluri: bold doar dacă fontul o are (altfel browserul o „falsifică” urât). */
+const fontWeight = (f) => (f === "system" || /700|800/.test(FONT_WEIGHTS[f] || "") ? 800 : 400);
+
+const bgSvg = (name, color) => `url("${BASE_URL}backgrounds/${name}.svg") center / cover no-repeat, ${color}`;
+
+const BG_GROUPS = [
+  ["classic", "🌈 Clasice"],
+  ["school", "🏫 Școală"],
+  ["boys", "🧢 Pentru băieți"],
+  ["girls", "🎀 Pentru fete"],
+];
 
 const BG_PRESETS = {
-  galaxy: { label: "Galaxie", css: `url("${BASE_URL}backgrounds/galaxy.svg") center / cover no-repeat, #0b1340` },
+  galaxy: { label: "Galaxie", group: "school", css: bgSvg("galaxy", "#0b1340") },
+  notebook_doodle: { label: "Caiet desenat", group: "school", css: bgSvg("notebook_doodle", "#fffdf6") },
+  chalk_formulas: { label: "Tablă cu formule", group: "school", css: bgSvg("chalk_formulas", "#24452f") },
+  school_supplies: { label: "Rechizite", group: "school", css: bgSvg("school_supplies", "#fff3bf") },
+  letters_numbers: { label: "Litere și cifre", group: "school", css: bgSvg("letters_numbers", "#f3f0ff") },
+  football: { label: "Fotbal", group: "boys", css: bgSvg("football", "#2f9e44") },
+  dinosaurs: { label: "Dinozauri", group: "boys", css: bgSvg("dinosaurs", "#ffe8cc") },
+  robots: { label: "Roboți", group: "boys", css: bgSvg("robots", "#0b1d3a") },
+  race_cars: { label: "Mașini de curse", group: "boys", css: bgSvg("race_cars", "#69db7c") },
+  rockets: { label: "Rachete", group: "boys", css: bgSvg("rockets", "#1c1446") },
+  pirates: { label: "Pirați", group: "boys", css: bgSvg("pirates", "#1c7ed6") },
+  superheroes: { label: "Supereroi", group: "boys", css: bgSvg("superheroes", "#f76707") },
+  unicorns: { label: "Unicorni", group: "girls", css: bgSvg("unicorns", "#e5dbff") },
+  princess: { label: "Prințese", group: "girls", css: bgSvg("princess", "#fcc2d7") },
+  flowers: { label: "Flori", group: "girls", css: bgSvg("flowers", "#e6fcf5") },
+  butterflies: { label: "Fluturi", group: "girls", css: bgSvg("butterflies", "#eebefa") },
+  kittens: { label: "Pisicuțe", group: "girls", css: bgSvg("kittens", "#fff4e6") },
+  mermaid: { label: "Sirene", group: "girls", css: bgSvg("mermaid", "#1098ad") },
+  candy_hearts: { label: "Bomboane", group: "girls", css: bgSvg("candy_hearts", "#fff0f6") },
   ocean: {
-    label: "Ocean",
+    label: "Ocean", group: "classic",
     css: "radial-gradient(circle at 20% 10%, rgba(255,255,255,.28), transparent 40%), linear-gradient(165deg,#0f4c75 0%,#3282b8 55%,#7fd1e8 100%)",
   },
-  sunset: { label: "Apus", css: "linear-gradient(170deg,#2b1055 0%,#7a4fd6 35%,#ff8a80 70%,#ffd194 100%)" },
+  sunset: { label: "Apus", group: "classic", css: "linear-gradient(170deg,#2b1055 0%,#7a4fd6 35%,#ff8a80 70%,#ffd194 100%)" },
   forest: {
-    label: "Pădure",
+    label: "Pădure", group: "classic",
     css: "radial-gradient(circle at 80% 0%, rgba(255,255,200,.3), transparent 45%), linear-gradient(160deg,#134e5e 0%,#3f8f5a 60%,#a8d672 100%)",
   },
   chalkboard: {
-    label: "Tablă",
+    label: "Tablă", group: "classic",
     css: "radial-gradient(ellipse at 50% 40%, #3f7350 0%, #23432d 75%, #1a3322 100%)",
   },
   notebook: {
-    label: "Caiet",
+    label: "Caiet", group: "classic",
     css: "linear-gradient(90deg, transparent 70px, #f3a6a6 70px, #f3a6a6 72px, transparent 72px), repeating-linear-gradient(180deg, #fffdf6 0 31px, #c7d8f3 31px 32px)",
   },
   candy: {
-    label: "Bomboane",
+    label: "Bomboane", group: "classic",
     css: "radial-gradient(circle at 12% 18%, rgba(255,255,255,.45) 0 70px, transparent 71px), radial-gradient(circle at 88% 82%, rgba(255,255,255,.35) 0 110px, transparent 111px), linear-gradient(135deg,#fbc2eb 0%,#a6c1ee 100%)",
   },
   aurora: {
-    label: "Auroră",
+    label: "Auroră", group: "classic",
     css: "radial-gradient(at 15% 20%, rgba(45,226,166,.65) 0, transparent 45%), radial-gradient(at 85% 25%, rgba(59,140,255,.65) 0, transparent 45%), radial-gradient(at 50% 95%, rgba(162,59,255,.65) 0, transparent 55%), #070b1f",
   },
+};
+
+/* Animații de fundal. kind: cum se mișcă particulele; items: emoji sau "" pentru puncte/forme desenate. */
+const ANIMATIONS = {
+  none: { label: "Fără animație" },
+  stars: { label: "⭐ Stele sclipitoare", kind: "twinkle", items: "" },
+  snow: { label: "❄️ Ninsoare", kind: "fall", items: "" },
+  bubbles: { label: "🫧 Bule de săpun", kind: "rise", items: "" },
+  confetti: { label: "🎉 Confetti", kind: "confetti", items: "" },
+  fireflies: { label: "✨ Licurici", kind: "wander", items: "" },
+  hearts: { label: "💖 Inimioare", kind: "rise", items: "💖 💕 💗 ❤️ 💜" },
+  balloons: { label: "🎈 Baloane", kind: "rise", items: "🎈 🎈 🎈 🎉" },
+  leaves: { label: "🍂 Frunze de toamnă", kind: "fall", items: "🍂 🍁 🍃" },
+  flowers: { label: "🌸 Petale și flori", kind: "fall", items: "🌸 🌼 🌺 🌷" },
+  school: { label: "✏️ Rechizite", kind: "fall", items: "✏️ 📚 📐 📏 🖍️ 🎒 📓 ✂️" },
+  abc: { label: "🔤 Litere și cifre", kind: "fall", items: "A B C 1 2 3" },
+  space: { label: "🚀 Spațiu", kind: "drift", items: "🚀 🛸 🪐 ☄️ ⭐ 🌙" },
+  sport: { label: "⚽ Mingi", kind: "bounce", items: "⚽ 🏀 🏈 🎾 🏐" },
+  dinos: { label: "🦖 Dinozauri", kind: "drift", items: "🦖 🦕 🥚 🌴" },
+  cars: { label: "🏎️ Mașinuțe", kind: "drive", items: "🏎️ 🚓 🚒 🚗 🚜" },
+  butterflies: { label: "🦋 Fluturi", kind: "wander", items: "🦋 🦋 🦋 🌸" },
+  unicorns: { label: "🦄 Magie", kind: "rise", items: "🦄 🌈 ✨ ⭐ 💜" },
+  sea: { label: "🐠 Sub apă", kind: "drift", items: "🐠 🐟 🐡 🐬 🐙 🫧" },
+  music: { label: "🎵 Note muzicale", kind: "rise", items: "🎵 🎶 🎼" },
 };
 
 const mkDays = (colors, win, opacity, text) =>
@@ -74,7 +161,19 @@ const DEFAULT_APPEARANCE = {
   bg_size: "cover",
   bg_dim: 0,
   bg_blur: 0,
-  stars: true,
+  animation: "stars",
+  fx_amount: 24,
+  fx_speed: 1,
+  class_font: "Bebas Neue",
+  class_text: "#ffffff",
+  class_bg: "#ffffff",
+  class_bg_opacity: 0,
+  class_border: "#f6ae3b",
+  class_border_width: 2,
+  class_radius: 14,
+  class_size: 1,
+  class_blur: false,
+  class_shadow: true,
   title_color: "#f6ae3b",
   text_color: "#ffffff",
   title_font: "Bebas Neue",
@@ -95,14 +194,26 @@ const DEFAULT_APPEARANCE = {
 };
 
 const THEMES = [
-  { id: "galaxie", label: "Galaxie", emoji: "🚀", a: { bg_type: "preset", bg_preset: "galaxy", stars: true, title_color: "#f6ae3b", text_color: "#ffffff", title_font: "Bebas Neue", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#63c5ee", "#128b92", "#e2512f", "#f8ac3e", "#ee84ae"], "#ffffff", 0.94, "#1d2340") } },
-  { id: "pastel", label: "Pastel", emoji: "🍬", a: { bg_type: "preset", bg_preset: "candy", stars: false, title_color: "#6c5ce7", text_color: "#3d3d6b", title_font: "Fredoka", body_font: "Nunito", cell_style: "tinted", days: mkDays(["#a29bfe", "#4fc3c8", "#fa8f7d", "#f5c242", "#f06fa4"], "#ffffff", 0.7, "#2d3436") } },
-  { id: "ocean", label: "Ocean", emoji: "🐳", a: { bg_type: "preset", bg_preset: "ocean", stars: false, title_color: "#ffffff", text_color: "#ffffff", title_font: "Baloo 2", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#00a8cc", "#0c7b93", "#27496d", "#f08a5d", "#00909e"], "#ffffff", 0.6, "#0b2239") } },
-  { id: "tabla", label: "Tablă", emoji: "🧑‍🏫", a: { bg_type: "preset", bg_preset: "chalkboard", stars: false, title_color: "#fffbe6", text_color: "#fffbe6", title_font: "Patrick Hand", body_font: "Patrick Hand", cell_style: "stripe", days: mkDays(["#ffd166", "#ef476f", "#06d6a0", "#4cc9f0", "#f78c6b"], "#16301f", 0.55, "#fffbe6") } },
-  { id: "caiet", label: "Caiet", emoji: "📓", a: { bg_type: "preset", bg_preset: "notebook", stars: false, title_color: "#e63946", text_color: "#1d3557", title_font: "Patrick Hand", body_font: "Patrick Hand", cell_style: "tinted", days: mkDays(["#457b9d", "#e63946", "#2a9d8f", "#f4a261", "#9b5de5"], "#ffffff", 0.75, "#1d3557") } },
-  { id: "neon", label: "Neon", emoji: "🌌", a: { bg_type: "preset", bg_preset: "aurora", stars: true, title_color: "#39ff14", text_color: "#e0e0ff", title_font: "Bangers", body_font: "Nunito", cell_style: "tinted", days: mkDays(["#ff00e5", "#00c8ff", "#39ff14", "#ffe600", "#ff6b00"], "#0b0b1e", 0.6, "#f0f0ff") } },
-  { id: "apus", label: "Apus", emoji: "🌅", a: { bg_type: "preset", bg_preset: "sunset", stars: true, title_color: "#fff3c4", text_color: "#ffffff", title_font: "Bangers", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#ff7aa2", "#ffb86b", "#7a4fd6", "#4a3aa8", "#ff5e62"], "#ffffff", 0.85, "#2b1055") } },
-  { id: "padure", label: "Pădure", emoji: "🌲", a: { bg_type: "preset", bg_preset: "forest", stars: false, title_color: "#fff8d6", text_color: "#ffffff", title_font: "Fredoka", body_font: "Nunito", cell_style: "solid", days: mkDays(["#2e7d32", "#558b2f", "#f9a825", "#6d4c41", "#00897b"], "#fffef5", 0.85, "#1b3a1b") } },
+  { id: "galaxie", label: "Galaxie", emoji: "🚀", a: { bg_type: "preset", bg_preset: "galaxy", animation: "stars", title_color: "#f6ae3b", text_color: "#ffffff", title_font: "Bebas Neue", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#63c5ee", "#128b92", "#e2512f", "#f8ac3e", "#ee84ae"], "#ffffff", 0.94, "#1d2340") } },
+  { id: "pastel", label: "Pastel", emoji: "🍬", a: { bg_type: "preset", bg_preset: "candy", animation: "none", title_color: "#6c5ce7", text_color: "#3d3d6b", title_font: "Fredoka", body_font: "Nunito", cell_style: "tinted", days: mkDays(["#a29bfe", "#4fc3c8", "#fa8f7d", "#f5c242", "#f06fa4"], "#ffffff", 0.7, "#2d3436") } },
+  { id: "ocean", label: "Ocean", emoji: "🐳", a: { bg_type: "preset", bg_preset: "ocean", animation: "none", title_color: "#ffffff", text_color: "#ffffff", title_font: "Baloo 2", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#00a8cc", "#0c7b93", "#27496d", "#f08a5d", "#00909e"], "#ffffff", 0.6, "#0b2239") } },
+  { id: "tabla", label: "Tablă", emoji: "🧑‍🏫", a: { bg_type: "preset", bg_preset: "chalkboard", animation: "none", title_color: "#fffbe6", text_color: "#fffbe6", title_font: "Patrick Hand", body_font: "Patrick Hand", cell_style: "stripe", days: mkDays(["#ffd166", "#ef476f", "#06d6a0", "#4cc9f0", "#f78c6b"], "#16301f", 0.55, "#fffbe6") } },
+  { id: "caiet", label: "Caiet", emoji: "📓", a: { bg_type: "preset", bg_preset: "notebook", animation: "none", title_color: "#e63946", text_color: "#1d3557", title_font: "Patrick Hand", body_font: "Patrick Hand", cell_style: "tinted", days: mkDays(["#457b9d", "#e63946", "#2a9d8f", "#f4a261", "#9b5de5"], "#ffffff", 0.75, "#1d3557") } },
+  { id: "neon", label: "Neon", emoji: "🌌", a: { bg_type: "preset", bg_preset: "aurora", animation: "stars", title_color: "#39ff14", text_color: "#e0e0ff", title_font: "Bangers", body_font: "Nunito", cell_style: "tinted", days: mkDays(["#ff00e5", "#00c8ff", "#39ff14", "#ffe600", "#ff6b00"], "#0b0b1e", 0.6, "#f0f0ff") } },
+  { id: "apus", label: "Apus", emoji: "🌅", a: { bg_type: "preset", bg_preset: "sunset", animation: "stars", title_color: "#fff3c4", text_color: "#ffffff", title_font: "Bangers", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#ff7aa2", "#ffb86b", "#7a4fd6", "#4a3aa8", "#ff5e62"], "#ffffff", 0.85, "#2b1055") } },
+  { id: "padure", label: "Pădure", emoji: "🌲", a: { bg_type: "preset", bg_preset: "forest", animation: "none", title_color: "#fff8d6", text_color: "#ffffff", title_font: "Fredoka", body_font: "Nunito", cell_style: "solid", days: mkDays(["#2e7d32", "#558b2f", "#f9a825", "#6d4c41", "#00897b"], "#fffef5", 0.85, "#1b3a1b") } },
+  { id: "rechizite", label: "Rechizite", emoji: "✏️", a: { bg_type: "preset", bg_preset: "school_supplies", animation: "school", title_color: "#e8590c", text_color: "#5c3d0a", title_font: "Luckiest Guy", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#fa5252", "#fd7e14", "#40c057", "#228be6", "#7950f2"], "#ffffff", 0.88, "#2b2b2b") } },
+  { id: "tabla2", label: "Formule", emoji: "🧮", a: { bg_type: "preset", bg_preset: "chalk_formulas", animation: "abc", title_color: "#fffbe6", text_color: "#fffbe6", title_font: "Fredericka the Great", body_font: "Schoolbell", cell_style: "stripe", days: mkDays(["#ffd166", "#ef476f", "#06d6a0", "#4cc9f0", "#f78c6b"], "#16301f", 0.5, "#fffbe6") } },
+  { id: "fotbal", label: "Fotbal", emoji: "⚽", a: { bg_type: "preset", bg_preset: "football", animation: "sport", title_color: "#ffffff", text_color: "#ffffff", title_font: "Bungee", body_font: "Nunito", cell_style: "solid", days: mkDays(["#1971c2", "#e03131", "#f08c00", "#212529", "#5f3dc4"], "#ffffff", 0.9, "#1b3a1b") } },
+  { id: "dinozauri", label: "Dinozauri", emoji: "🦖", a: { bg_type: "preset", bg_preset: "dinosaurs", animation: "dinos", title_color: "#2b8a3e", text_color: "#3b2a14", title_font: "Titan One", body_font: "Grandstander", cell_style: "tinted", days: mkDays(["#74b816", "#f76707", "#2b8a3e", "#c2255c", "#1098ad"], "#fffdf0", 0.85, "#2b2b2b") } },
+  { id: "roboti", label: "Roboți", emoji: "🤖", a: { bg_type: "preset", bg_preset: "robots", animation: "fireflies", title_color: "#3bc9db", text_color: "#e3fafc", title_font: "Orbitron", body_font: "Space Grotesk", cell_style: "tinted", days: mkDays(["#15aabf", "#4c6ef5", "#40c057", "#fab005", "#e64980"], "#0b1d3a", 0.7, "#e3fafc") } },
+  { id: "rachete", label: "Rachete", emoji: "🚀", a: { bg_type: "preset", bg_preset: "rockets", animation: "space", title_color: "#ffd43b", text_color: "#ffffff", title_font: "Russo One", body_font: "Baloo 2", cell_style: "stripe", days: mkDays(["#4dabf7", "#f76707", "#9775fa", "#20c997", "#f06595"], "#ffffff", 0.9, "#1c1446") } },
+  { id: "masini", label: "Mașini", emoji: "🏎️", a: { bg_type: "preset", bg_preset: "race_cars", animation: "cars", title_color: "#e03131", text_color: "#212529", title_font: "Bowlby One SC", body_font: "Nunito", cell_style: "stripe", days: mkDays(["#e03131", "#1971c2", "#f59f00", "#2b8a3e", "#212529"], "#ffffff", 0.9, "#212529") } },
+  { id: "unicorni", label: "Unicorni", emoji: "🦄", a: { bg_type: "preset", bg_preset: "unicorns", animation: "unicorns", title_color: "#cc5de8", text_color: "#5f3dc4", title_font: "Pacifico", body_font: "Fredoka", cell_style: "tinted", days: mkDays(["#f783ac", "#b197fc", "#74c0fc", "#63e6be", "#ffd43b"], "#ffffff", 0.75, "#3d2a5c") } },
+  { id: "printese", label: "Prințese", emoji: "👑", a: { bg_type: "preset", bg_preset: "princess", animation: "stars", title_color: "#ae3ec9", text_color: "#862e9c", title_font: "Courgette", body_font: "Quicksand", cell_style: "tinted", days: mkDays(["#e64980", "#be4bdb", "#f783ac", "#9775fa", "#f06595"], "#fff5fa", 0.8, "#5c1a45") } },
+  { id: "fluturi", label: "Fluturi", emoji: "🦋", a: { bg_type: "preset", bg_preset: "butterflies", animation: "butterflies", title_color: "#9c36b5", text_color: "#5f3dc4", title_font: "Dancing Script", body_font: "Comfortaa", cell_style: "stripe", days: mkDays(["#74c0fc", "#da77f2", "#ff8787", "#69db7c", "#ffa94d"], "#ffffff", 0.8, "#2d3436") } },
+  { id: "sirene", label: "Sirene", emoji: "🧜‍♀️", a: { bg_type: "preset", bg_preset: "mermaid", animation: "sea", title_color: "#fff3bf", text_color: "#e3fafc", title_font: "Lobster", body_font: "Baloo 2", cell_style: "tinted", days: mkDays(["#66d9e8", "#f783ac", "#b197fc", "#63e6be", "#ffd43b"], "#ffffff", 0.75, "#0b3d5c") } },
+  { id: "pisicute", label: "Pisicuțe", emoji: "🐱", a: { bg_type: "preset", bg_preset: "kittens", animation: "hearts", title_color: "#f76707", text_color: "#7a3e00", title_font: "Chewy", body_font: "Mali", cell_style: "tinted", days: mkDays(["#ffa94d", "#f783ac", "#e599f7", "#74c0fc", "#8ce99a"], "#ffffff", 0.85, "#4a2a10") } },
 ];
 
 const SUBJECT_COLORS = ["#e2512f", "#3f7be0", "#27ae60", "#8e44ad", "#f39c12", "#16a085", "#e84393", "#0097a7", "#d35400", "#6c5ce7", "#c0392b", "#2e86de"];
@@ -197,7 +308,60 @@ function appearanceOf(d) {
   const src = d?.appearance || {};
   const a = { ...DEFAULT_APPEARANCE, ...src, days: {} };
   for (const k of DAY_KEYS) a.days[k] = { ...DEFAULT_APPEARANCE.days[k], ...(src.days?.[k] || {}) };
+  // orarele salvate înainte de v1.4 aveau doar „stars” (da/nu)
+  if (src.animation === undefined && src.stars === false) a.animation = "none";
+  if (!ANIMATIONS[a.animation]) a.animation = "none";
+  delete a.stars;
   return a;
+}
+
+/** Variabilele CSS pentru caseta cu numele clasei. */
+function classBoxVars(a) {
+  return [
+    `--font-class:${fontStack(a.class_font)}`, `--cw:${fontWeight(a.class_font)}`, `--ctxt:${a.class_text}`,
+    `--cbg:${rgba(a.class_bg, a.class_bg_opacity)}`, `--cbord:${a.class_border}`, `--cbw:${a.class_border_width}px`,
+    `--crad:${a.class_radius}px`, `--csize:${a.class_size}`, `--cblur:${a.class_blur ? "blur(8px)" : "none"}`,
+    `--cshadow:${a.class_shadow ? "0 2px 0 rgba(0,0,0,.25),0 0 14px rgba(0,0,0,.25)" : "none"}`,
+    `--cbox:${a.class_shadow && (a.class_bg_opacity > 0 || a.class_border_width > 0) ? "0 6px 20px rgba(0,0,0,.18)" : "none"}`,
+  ];
+}
+
+/** Stratul cu animația de fundal. Pozițiile sunt deterministe, ca să nu „sară” la redesenare. */
+function fxHtml(a) {
+  const fx = ANIMATIONS[a.animation];
+  if (!fx?.kind) return "";
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const between = (lo, hi) => lo + rnd() * (hi - lo);
+  const items = fx.items ? fx.items.split(" ") : [];
+  const speed = Math.max(0.25, Number(a.fx_speed) || 1);
+  const kind = fx.kind;
+  const n = Math.round(Math.max(4, Math.min(80, Number(a.fx_amount) || 24)) * (kind === "twinkle" ? 2 : 1));
+  const CONFETTI = ["#ff6b6b", "#ffd43b", "#69db7c", "#4dabf7", "#da77f2", "#ff922b"];
+  const base = { twinkle: [2, 5], fall: [9, 18], confetti: [7, 13], bounce: [6, 11], rise: [10, 20], drift: [18, 34], drive: [10, 18], wander: [5, 10] }[kind];
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    const d = between(...base) / speed;
+    const vars = [`--d:${d.toFixed(1)}s`, `--dl:-${(rnd() * d).toFixed(1)}s`, `--d2:${between(2, 5).toFixed(1)}s`];
+    let x = between(0, 98);
+    let y = between(2, 96);
+    if (kind === "drive") y = between(72, 94);
+    vars.push(`--x:${x.toFixed(1)}%`, `--y:${y.toFixed(1)}%`);
+    if (kind === "wander") vars.push(`--dx:${between(-130, 130).toFixed(0)}px`, `--dy:${between(-90, 90).toFixed(0)}px`);
+    let inner;
+    if (items.length) {
+      vars.push(`--s:${between(18, kind === "twinkle" ? 22 : 38).toFixed(0)}px`, `--o:${between(0.65, 1).toFixed(2)}`);
+      inner = items[i % items.length];
+    } else {
+      const size = { stars: [2, 4.5], snow: [4, 10], bubbles: [10, 32], fireflies: [4, 7], confetti: [7, 12] }[a.animation] || [4, 8];
+      vars.push(`--s:${between(...size).toFixed(1)}px`, `--o:${between(0.5, 1).toFixed(2)}`);
+      if (a.animation === "confetti") vars.push(`--c:${CONFETTI[i % CONFETTI.length]}`);
+      inner = "";
+    }
+    parts.push(`<i class="p" style="${vars.join(";")}"><b>${inner}</b></i>`);
+  }
+  const key = `${a.animation}|${n}|${speed}`;
+  return `<div class="fx k-${kind} a-${a.animation} ${items.length ? "emo" : "dots"}" data-k="${esc(key)}" aria-hidden="true">${parts.join("")}</div>`;
 }
 
 function backgroundCss(a) {
@@ -336,27 +500,60 @@ const BOARD_CSS = `
 .board{position:relative;overflow:hidden;isolation:isolate;border-radius:20px;padding:clamp(14px,2.6cqw,36px);color:var(--txt);font-family:var(--font-body);min-height:200px}
 .bg{position:absolute;inset:calc(var(--bgblur) * -2);z-index:-3;filter:blur(var(--bgblur));background-color:#0b1340}
 .dim{position:absolute;inset:0;z-index:-2;background:rgba(0,0,0,var(--dim))}
-.twinkle,.twinkle::after{position:absolute;inset:0;z-index:-1;pointer-events:none;background-repeat:no-repeat}
-.twinkle{background-image:radial-gradient(2px 2px at 8% 14%,#fff,transparent 70%),radial-gradient(2px 2px at 27% 7%,#fff,transparent 70%),radial-gradient(1.6px 1.6px at 46% 22%,#fff,transparent 70%),radial-gradient(2.4px 2.4px at 66% 9%,#ffe9a8,transparent 70%),radial-gradient(1.8px 1.8px at 88% 18%,#fff,transparent 70%),radial-gradient(2px 2px at 95% 52%,#fff,transparent 70%),radial-gradient(1.6px 1.6px at 4% 60%,#fff,transparent 70%),radial-gradient(2.2px 2.2px at 18% 92%,#ffe9a8,transparent 70%),radial-gradient(1.6px 1.6px at 52% 96%,#fff,transparent 70%),radial-gradient(2px 2px at 78% 90%,#fff,transparent 70%);animation:tw 3.2s ease-in-out infinite alternate}
-.twinkle::after{content:"";background-image:radial-gradient(1.8px 1.8px at 15% 35%,#fff,transparent 70%),radial-gradient(2.2px 2.2px at 36% 15%,#ffe9a8,transparent 70%),radial-gradient(1.6px 1.6px at 58% 4%,#fff,transparent 70%),radial-gradient(2px 2px at 77% 30%,#fff,transparent 70%),radial-gradient(1.6px 1.6px at 92% 75%,#fff,transparent 70%),radial-gradient(2px 2px at 9% 80%,#fff,transparent 70%),radial-gradient(2.2px 2.2px at 40% 88%,#fff,transparent 70%),radial-gradient(1.8px 1.8px at 64% 82%,#ffe9a8,transparent 70%);animation:tw 4.1s ease-in-out -2s infinite alternate-reverse}
-@keyframes tw{from{opacity:.15}to{opacity:1}}
+.fx{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.fx .p{position:absolute;inset:0;animation:var(--an) var(--d) linear var(--dl) infinite;will-change:transform,opacity}
+.fx .p>b{position:absolute;left:var(--x);top:var(--y);font-size:var(--s);line-height:1;font-weight:400;font-style:normal;opacity:var(--o);font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif}
+.fx.dots .p>b{width:var(--s);height:var(--s);border-radius:50%}
+.k-twinkle .p{--an:fxtw;animation-timing-function:ease-in-out;animation-direction:alternate}
+.a-stars .p>b{background:#fff;box-shadow:0 0 6px #fff}
+.k-fall .p,.k-confetti .p,.k-bounce .p{--an:fxfall}
+.k-fall .p>b,.k-confetti .p>b,.k-bounce .p>b{top:-60px}
+.k-fall .p>b{animation:fxsway var(--d2) ease-in-out var(--dl) infinite alternate}
+.a-snow .p>b{background:#fff;box-shadow:0 0 6px rgba(255,255,255,.8)}
+.a-abc .p>b{color:var(--title);font-family:var(--font-title);font-weight:var(--tw);text-shadow:0 2px 6px rgba(0,0,0,.3)}
+.k-confetti .p>b{width:var(--s);height:calc(var(--s) * 1.7);border-radius:2px;background:var(--c);animation:fxflip var(--d2) linear var(--dl) infinite}
+.k-bounce .p{--an:fxbounce}
+.k-bounce .p>b{animation:fxspin var(--d2) linear infinite}
+.k-rise .p{--an:fxrise}
+.k-rise .p>b{top:100%;animation:fxsway var(--d2) ease-in-out var(--dl) infinite alternate}
+.a-bubbles .p>b{background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.9),rgba(255,255,255,.15) 40%,rgba(160,220,255,.25) 70%,rgba(255,255,255,.6));border:1px solid rgba(255,255,255,.6)}
+.k-drift .p{--an:fxdrift}
+.k-drift .p>b{left:-70px;animation:fxbob var(--d2) ease-in-out var(--dl) infinite alternate}
+.k-drive .p{--an:fxdrive}
+.k-drive .p>b{left:100%}
+.k-wander .p{--an:fxwander;animation-timing-function:ease-in-out;animation-direction:alternate}
+.a-fireflies .p>b{background:#fff3a0;box-shadow:0 0 10px 3px #ffe066;animation:fxtw var(--d2) ease-in-out var(--dl) infinite alternate}
+.a-butterflies .p>b{animation:fxflap .35s ease-in-out infinite alternate}
+@keyframes fxtw{from{opacity:.1}to{opacity:1}}
+@keyframes fxfall{from{transform:translateY(0)}to{transform:translateY(calc(100% + 120px))}}
+@keyframes fxrise{0%{transform:translateY(0);opacity:0}10%{opacity:1}85%{opacity:1}100%{transform:translateY(calc(-100% - 120px));opacity:0}}
+@keyframes fxdrift{from{transform:translateX(0)}to{transform:translateX(calc(100% + 140px))}}
+@keyframes fxdrive{from{transform:translateX(0)}to{transform:translateX(calc(-100% - 140px))}}
+@keyframes fxwander{from{transform:translate(0,0)}to{transform:translate(var(--dx),var(--dy))}}
+@keyframes fxbounce{0%{transform:translateY(0)}55%{transform:translateY(calc(100% + 10px));animation-timing-function:ease-out}70%{transform:translateY(calc(85% + 10px));animation-timing-function:ease-in}85%{transform:translateY(calc(100% + 10px))}100%{transform:translateY(calc(100% + 120px))}}
+@keyframes fxsway{from{transform:translateX(-18px) rotate(-18deg)}to{transform:translateX(18px) rotate(18deg)}}
+@keyframes fxbob{from{transform:translateY(-14px) rotate(-6deg)}to{transform:translateY(14px) rotate(6deg)}}
+@keyframes fxspin{to{transform:rotate(360deg)}}
+@keyframes fxflip{from{transform:rotate3d(1,1,0,0deg)}to{transform:rotate3d(1,1,0,360deg)}}
+@keyframes fxflap{from{transform:scaleX(1)}to{transform:scaleX(.35)}}
+@media (prefers-reduced-motion:reduce){.fx .p,.fx .p>b{animation-play-state:paused}}
 header{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 22px;margin-bottom:clamp(10px,2cqw,26px);text-align:center}
 .toolbar{display:flex;justify-content:flex-end;margin:calc(clamp(14px,2.6cqw,36px) * -.5) calc(clamp(14px,2.6cqw,36px) * -.5) 0}
 .titles{display:flex;flex-direction:column;align-items:center}
 .trow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px clamp(10px,1.6cqw,20px)}
-.classbox{font-family:var(--font-title);font-weight:800;font-size:clamp(20px,3.6cqw,44px);line-height:1;letter-spacing:.04em;color:var(--txt);text-align:center;padding:.18em .5em;border-radius:14px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:2px solid color-mix(in srgb,var(--title) 70%,transparent);box-shadow:0 6px 20px rgba(0,0,0,.18);text-shadow:0 2px 0 rgba(0,0,0,.25);max-width:100%}
-input.classbox{outline:none;min-width:3ch;cursor:text;transition:border-color .2s,background .2s}
-input.classbox::placeholder{color:var(--txt);opacity:.5}
-input.classbox:hover{border-color:var(--title)}
-input.classbox:focus{border-color:var(--title);background:rgba(255,255,255,.24)}
-.title{margin:0;font-family:var(--font-title);font-weight:800;font-size:clamp(34px,7cqw,84px);line-height:.95;color:var(--title);letter-spacing:.04em;text-shadow:0 4px 0 rgba(0,0,0,.25),0 0 30px color-mix(in srgb,var(--title) 40%,transparent)}
+.classbox{font-family:var(--font-class);font-weight:var(--cw);font-size:calc(clamp(20px,3.6cqw,44px) * var(--csize));line-height:1;letter-spacing:.04em;color:var(--ctxt);text-align:center;padding:.18em .5em;border-radius:var(--crad);background:var(--cbg);backdrop-filter:var(--cblur);-webkit-backdrop-filter:var(--cblur);border:var(--cbw) solid var(--cbord);box-shadow:var(--cbox);text-shadow:var(--cshadow);max-width:100%}
+input.classbox{outline:none;min-width:3ch;cursor:text;transition:border-color .2s,background .2s,box-shadow .2s}
+input.classbox::placeholder{color:var(--ctxt);opacity:.5}
+input.classbox:hover{box-shadow:var(--cbox),0 0 0 2px color-mix(in srgb,var(--cbord) 60%,transparent)}
+input.classbox:focus{box-shadow:var(--cbox),0 0 0 3px var(--cbord)}
+.title{margin:0;font-family:var(--font-title);font-weight:var(--tw);font-size:clamp(34px,7cqw,84px);line-height:.95;color:var(--title);letter-spacing:.04em;text-shadow:0 4px 0 rgba(0,0,0,.25),0 0 30px color-mix(in srgb,var(--title) 40%,transparent)}
 .subtitle{font-size:clamp(13px,1.6cqw,18px);opacity:.9;margin-top:4px;font-weight:600}
 .chip{display:inline-flex;align-items:center;gap:10px;padding:6px 14px 6px 6px;border-radius:999px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);font-weight:600;font-size:clamp(12px,1.4cqw,15px);box-shadow:0 6px 20px rgba(0,0,0,.18)}
 .clock{background:var(--title);color:#1d2340;border-radius:999px;padding:3px 10px;font-weight:800;font-variant-numeric:tabular-nums}
 .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(8px,1.8cqw,24px);align-items:start}
 .grid.with-axis{grid-template-columns:40px repeat(5,minmax(0,1fr))}
 .day{display:flex;flex-direction:column;min-width:0}
-.pill{background:var(--day);color:#fff;border-radius:999px;text-align:center;font-family:var(--font-title);font-style:italic;font-weight:800;letter-spacing:.08em;font-size:clamp(14px,2.1cqw,26px);padding:.35em .4em;box-shadow:0 5px 0 rgba(0,0,0,.18),inset 0 -3px 0 rgba(0,0,0,.12);text-shadow:0 2px 0 rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:transform .3s}
+.pill{background:var(--day);color:#fff;border-radius:999px;text-align:center;font-family:var(--font-title);font-style:italic;font-weight:var(--tw);letter-spacing:.08em;font-size:clamp(14px,2.1cqw,26px);padding:.35em .4em;box-shadow:0 5px 0 rgba(0,0,0,.18),inset 0 -3px 0 rgba(0,0,0,.12);text-shadow:0 2px 0 rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:transform .3s}
 .date{text-align:center;font-size:12px;font-weight:600;opacity:.85;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .window{margin-top:10px;background:var(--win);backdrop-filter:blur(var(--wblur));-webkit-backdrop-filter:blur(var(--wblur));border-radius:var(--r);overflow:hidden;color:var(--wtxt);box-shadow:0 12px 28px rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.18)}
 .day.today .pill{transform:translateY(-3px) scale(1.05);box-shadow:0 0 0 3px rgba(255,255,255,.75),0 0 26px var(--day)}
@@ -526,15 +723,18 @@ class OrarBoard extends HTMLElement {
       `--title:${a.title_color}`, `--txt:${a.text_color}`,
       `--font-title:${fontStack(a.title_font)}`, `--font-body:${fontStack(a.body_font)}`,
       `--dim:${a.bg_dim}`, `--bgblur:${a.bg_blur}px`, `--wblur:${a.window_blur}px`, `--r:${a.cell_radius}px`,
+      `--tw:${fontWeight(a.title_font)}`, ...classBoxVars(a),
     ].join(";");
+    [a.title_font, a.body_font, a.class_font].forEach(loadFont);
     const chip = statusText(info);
+    const oldFx = root.querySelector(".fx");
     const classes = ["board", narrow && "narrow", this._editable ? "editing" : "view", timeline && "timeline", this._brush && "brushing"];
 
     root.innerHTML = `<style>${BOARD_CSS}</style>
       <div class="${classes.filter(Boolean).join(" ")}" style="${esc(vars)}">
         <div class="bg" style="background:${esc(backgroundCss(a))}"></div>
         <div class="dim"></div>
-        ${a.stars ? `<div class="twinkle"></div>` : ""}
+        ${fxHtml(a)}
         <div class="toolbar"><slot name="tools"></slot></div>
         <header>
           <div class="titles">
@@ -555,6 +755,10 @@ class OrarBoard extends HTMLElement {
         ${a.show_footer && a.footer ? `<footer>${esc(a.footer)}</footer>` : ""}
         ${this._pop ? this._popHtml() : ""}
       </div>`;
+
+    // Animația continuă neîntreruptă la redesenare (refolosim stratul vechi dacă e aceeași).
+    const newFx = root.querySelector(".fx");
+    if (oldFx && newFx && oldFx.dataset.k === newFx.dataset.k) newFx.replaceWith(oldFx);
 
     const grid = root.querySelector(".grid");
     if (narrow && grid) {
@@ -859,6 +1063,13 @@ label.inline{flex-direction:row;align-items:center;gap:8px;font-size:14px;color:
 .theme .sw{height:42px;border-radius:9px;display:flex;align-items:flex-end;gap:3px;padding:5px;background-size:cover !important}
 .theme .sw i{flex:1;height:10px;border-radius:4px}
 .presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.pgroup{font-size:12px;font-weight:700;color:var(--secondary-text-color,#5f6680);margin:12px 0 6px}
+.pgroup:first-of-type{margin-top:0}
+.anims{display:flex;flex-wrap:wrap;gap:6px}
+.anim{border:2px solid var(--divider-color,rgba(0,0,0,.12));border-radius:999px;padding:6px 12px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#1d2340);font-size:13px;font-weight:600}
+.anim:hover{border-color:var(--accent)}
+.anim.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.fontsel{font-size:15px}
 .preset{height:58px;border-radius:12px;border:3px solid transparent;position:relative;overflow:hidden;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:flex-end;padding:4px 6px;text-shadow:0 1px 3px rgba(0,0,0,.7);background-size:cover !important}
 .preset.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--card-background-color,#fff) inset}
 .seg{display:inline-flex;border:1px solid var(--divider-color,rgba(0,0,0,.12));border-radius:12px;overflow:hidden}
@@ -1521,8 +1732,12 @@ class OrarPanel extends HTMLElement {
       `<label class="inline"><input type="checkbox" data-bind="appearance.${key}" ${a[key] ? "checked" : ""}> ${label}</label>`;
     const slider = (key, label, min, max, step, fmt) =>
       `<label class="slider">${label}<input type="range" min="${min}" max="${max}" step="${step}" value="${a[key]}" data-bind="appearance.${key}" data-type="num" data-fmt="${fmt}"><output>${this._fmt(a[key], fmt)}</output></label>`;
+    // Previzualizarea fonturilor în listă: le încărcăm pe toate doar când e deschis editorul.
+    FONT_LIST.forEach(loadFont);
+    const fontOpt = (key, f, label = f) => `<option ${a[key] === f ? "selected" : ""} value="${esc(f)}" style="font-family:${esc(fontStack(f))}">${esc(label)}</option>`;
     const fontSel = (key) =>
-      `<select data-bind="appearance.${key}">${FONT_LIST.map((f) => `<option ${a[key] === f ? "selected" : ""} value="${f}" style="font-family:${fontStack(f)}">${f === "system" ? "Fontul sistemului" : f}</option>`).join("")}</select>`;
+      `<select class="fontsel" data-bind="appearance.${key}" data-rerender style="font-family:${esc(fontStack(a[key]))}">${FONT_GROUPS.map(([g, list]) => `<optgroup label="${g}">${list.map(([f]) => fontOpt(key, f)).join("")}</optgroup>`).join("")}<optgroup label="💻 Altele">${fontOpt(key, "system", "Fontul sistemului")}</optgroup></select>`;
+    const color = (key, label) => `<label class="inline"><input type="color" value="${a[key]}" data-bind="appearance.${key}"> ${label}</label>`;
 
     return `<div class="look">
       <div>
@@ -1538,7 +1753,7 @@ class OrarPanel extends HTMLElement {
           <div class="seg" style="margin-bottom:12px">
             ${[["preset", "🌈 Teme"], ["image", "📷 Imagine"], ["color", "🎨 Culoare"]].map(([v, l]) => `<button class="${a.bg_type === v ? "sel" : ""}" data-action="bg-type" data-v="${v}">${l}</button>`).join("")}
           </div>
-          ${a.bg_type === "preset" ? `<div class="presets">${Object.entries(BG_PRESETS).map(([k, p]) => `<button class="preset ${a.bg_preset === k ? "sel" : ""}" style="background:${esc(p.css)}" data-action="bg-preset" data-id="${k}">${p.label}</button>`).join("")}</div>` : ""}
+          ${a.bg_type === "preset" ? BG_GROUPS.map(([g, gl]) => `<div class="pgroup">${gl}</div><div class="presets">${Object.entries(BG_PRESETS).filter(([, p]) => p.group === g).map(([k, p]) => `<button class="preset ${a.bg_preset === k ? "sel" : ""}" style="background:${esc(p.css)}" data-action="bg-preset" data-id="${k}">${p.label}</button>`).join("")}</div>`).join("") : ""}
           ${a.bg_type === "image" ? `<div class="row">
               <button class="primary" data-action="bg-upload">📤 Încarcă imagine</button>
               <input type="file" accept="image/*" id="bg-file" hidden>
@@ -1554,8 +1769,16 @@ class OrarPanel extends HTMLElement {
           <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
             ${slider("bg_dim", "Întunecare", 0, 0.9, 0.05, "pct")}
             ${slider("bg_blur", "Estompare", 0, 20, 1, "px")}
-            ${toggle("stars", "⭐ Stele sclipitoare animate")}
           </div>
+        </div>
+
+        <div class="card">
+          <h3>🎞️ Animații</h3>
+          <div class="anims">${Object.entries(ANIMATIONS).map(([k, x]) => `<button class="anim ${a.animation === k ? "sel" : ""}" data-action="anim" data-id="${k}">${x.label}</button>`).join("")}</div>
+          ${a.animation !== "none" ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+            ${slider("fx_amount", "Cantitate", 4, 80, 1, "")}
+            ${slider("fx_speed", "Viteză", 0.25, 3, 0.25, "x")}
+          </div>` : ""}
         </div>
 
         <div class="card">
@@ -1580,10 +1803,34 @@ class OrarPanel extends HTMLElement {
         </div>
 
         <div class="card">
+          <h3>🏷️ Caseta cu numele clasei</h3>
+          <div class="fields">
+            <label>Numele clasei<input maxlength="40" value="${esc(a.class_name)}" data-bind="appearance.class_name" placeholder="ex: a V-a B"></label>
+            <label>Font${fontSel("class_font")}</label>
+            ${color("class_text", "Culoare text")}
+            ${color("class_bg", "Culoare fundal")}
+            ${color("class_border", "Culoare chenar")}
+            ${toggle("class_blur", "🧊 Efect de sticlă")}
+            ${toggle("class_shadow", "🌑 Umbră")}
+          </div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+            ${slider("class_bg_opacity", "Opacitate fundal (0% = transparent)", 0, 1, 0.05, "pct")}
+            ${slider("class_border_width", "Grosime chenar", 0, 8, 1, "px")}
+            ${slider("class_radius", "Rotunjire colțuri", 0, 40, 1, "px")}
+            ${slider("class_size", "Mărime", 0.5, 2, 0.05, "pct")}
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" data-action="class-style" data-v="clear">🫥 Transparent</button>
+            <button class="btn" data-action="class-style" data-v="glass">🧊 Sticlă</button>
+            <button class="btn" data-action="class-style" data-v="badge">🏅 Insignă</button>
+            <button class="btn" data-action="class-style" data-v="chalk">🖍️ Cretă</button>
+          </div>
+        </div>
+
+        <div class="card">
           <h3>🔤 Texte și fonturi</h3>
           <div class="fields">
             <label>Titlu<input maxlength="60" value="${esc(a.title)}" data-bind="appearance.title"></label>
-            <label>Numele clasei<input maxlength="40" value="${esc(a.class_name)}" data-bind="appearance.class_name" placeholder="ex: a V-a B"></label>
             <label>Subtitlu<input maxlength="120" value="${esc(a.subtitle)}" data-bind="appearance.subtitle" placeholder="ex: Ana · Școala nr. 1"></label>
             <label class="wide">Motto (subsol)<input maxlength="200" value="${esc(a.footer)}" data-bind="appearance.footer"></label>
             <label>Font titlu${fontSel("title_font")}</label>
@@ -1622,6 +1869,7 @@ class OrarPanel extends HTMLElement {
     if (fmt === "pct") return `${Math.round(v * 100)}%`;
     if (fmt === "int-pct") return `${Math.round(v)}%`;
     if (fmt === "px") return `${v}px`;
+    if (fmt === "x") return `${v}×`;
     return String(v);
   }
 
@@ -2041,7 +2289,8 @@ action:
       /* aspect */
       case "theme": {
         const theme = THEMES.find((x) => x.id === a.id);
-        Object.assign(d.appearance, clone(theme.a));
+        // caseta clasei preia culorile și fontul temei (poate fi personalizată după)
+        Object.assign(d.appearance, { class_text: theme.a.text_color, class_border: theme.a.title_color, class_font: theme.a.title_font }, clone(theme.a));
         this._touch("appearance");
         this._renderTab();
         this._toast(`${theme.emoji} Tema „${theme.label}” aplicată`);
@@ -2052,6 +2301,24 @@ action:
         this._touch("appearance");
         this._renderTab();
         break;
+      case "anim":
+        d.appearance.animation = a.id;
+        this._touch("appearance");
+        this._renderTab();
+        break;
+      case "class-style": {
+        const ap = d.appearance;
+        const styles = {
+          clear: { class_bg_opacity: 0, class_border_width: 0, class_blur: false, class_shadow: true },
+          glass: { class_bg: "#ffffff", class_bg_opacity: 0.15, class_border_width: 2, class_blur: true, class_shadow: true, class_radius: 14 },
+          badge: { class_bg: ap.title_color, class_bg_opacity: 1, class_text: contrastColor(ap.title_color), class_border: "#ffffff", class_border_width: 3, class_radius: 40, class_blur: false, class_shadow: true },
+          chalk: { class_bg_opacity: 0, class_text: "#fbfbf0", class_border: "#fbfbf0", class_border_width: 3, class_radius: 6, class_font: "Fredericka the Great", class_blur: false, class_shadow: false },
+        };
+        Object.assign(ap, styles[a.v] || {});
+        this._touch("appearance");
+        this._renderTab();
+        break;
+      }
       case "bg-preset":
         d.appearance.bg_preset = a.id;
         this._touch("appearance");
@@ -2192,9 +2459,9 @@ ha-card{background:transparent;border:none;box-shadow:none}
 .tbtn[aria-pressed="true"]{background:var(--primary-color,#3f7be0);border-color:var(--primary-color,#3f7be0);color:var(--text-primary-color,#fff)}
 .tbtn[aria-pressed="true"] ha-icon{color:inherit}
 .tools.over{margin:0 0 6px}
-.tools.over .tbtn{background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-color:rgba(255,255,255,.3);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.tools.over .tbtn{background:rgba(12,18,40,.38);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-color:rgba(255,255,255,.3);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);box-shadow:0 4px 14px rgba(0,0,0,.18)}
 .tools.over .tbtn ha-icon{color:#fff}
-.tools.over .tbtn:hover{background:rgba(255,255,255,.26);border-color:rgba(255,255,255,.6)}
+.tools.over .tbtn:hover{background:rgba(12,18,40,.55);border-color:rgba(255,255,255,.6)}
 .tools.over .tbtn[aria-pressed="true"]{background:var(--primary-color,#3f7be0);border-color:#fff;text-shadow:none}
 .editor{margin-top:10px;padding:14px;border-radius:var(--ha-card-border-radius,16px);background:var(--ha-card-background,var(--card-background-color,#fff));border:1px solid var(--primary-color,#3f7be0);box-shadow:var(--ha-card-box-shadow,none)}
 `;
@@ -2452,6 +2719,7 @@ class OrarCard extends HTMLElement {
       `--font-body:${fontStack(a.body_font)}`, `--dim:${a.bg_dim}`, `--day:${ds.color}`,
       `--win:${rgba(ds.window, ds.opacity)}`, `--wtxt:${ds.text}`,
     ].join(";");
+    [a.title_font, a.body_font].forEach(loadFont);
     const body = mode === "now" ? this._nowHtml(d, info) : mode === "backpack" ? this._packHtml(d, a) : this._todayHtml(d, info);
     const label = mode === "backpack" ? "🎒 Ghiozdan" : info.dayKey ? DAY_NAME[info.dayKey].toUpperCase() : "WEEKEND";
     this._el.view.innerHTML = `<div class="mini" style="${esc(vars)}">

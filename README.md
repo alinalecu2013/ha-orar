@@ -12,7 +12,7 @@ ore de început și de sfârșit pentru fiecare materie, editor complet direct d
 | **✏️ Zile** | Meniu pe fiecare zi: alegi materia din baza de date, setezi orele, muți rândurile, copiezi o zi în alta |
 | **📚 Materii** | Baza de date de materii: nume, prescurtare, culoare, iconiță, profesor, sală, ce iei în ghiozdan, observații |
 | **🔔 Clopoțel** | Orele standard, plus un generator (prima oră, durata, pauze, pauza mare) |
-| **🎨 Themes** | 8 teme rapide, fundal (8 fundaluri predefinite, **imaginea ta** sau o culoare), întunecare și estompare a fundalului, stele animate, **culoarea antetului, a ferestrei și a textului, plus transparența ferestrei, separat pentru fiecare zi**, efect de sticlă, colțuri, fonturi, titlu, subtitlu, motto, mod „Rânduri” sau „Cronologic” (cu linia „acum”) |
+| **🎨 Themes** | 20 de teme rapide, **26 de fundaluri** (clasice, școală, pentru băieți, pentru fete), **imaginea ta** sau o culoare, **20 de animații** (stele, ninsoare, baloane, rechizite, mingi, fluturi, dinozauri…) cu cantitate și viteză, **peste 80 de fonturi** Google, caseta cu **numele clasei** complet personalizabilă (transparentă, culori, chenar, font, mărime), culoarea și transparența ferestrei pentru fiecare zi, efect de sticlă, mod „Rânduri” sau „Cronologic” |
 | **🏖️ Vacanțe** | Intervale în care orarul nu se aplică |
 | **⚙️ Setări** | Export și import JSON, exemple de automatizări |
 
