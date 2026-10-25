@@ -1,0 +1,53 @@
+set_lesson:
+  fields:
+    orar:
+      example: "Orar"
+      selector:
+        text:
+    day:
+      required: true
+      example: "luni"
+      selector:
+        select:
+          options: ["luni", "marti", "miercuri", "joi", "vineri"]
+    index:
+      required: true
+      example: 3
+      selector:
+        number:
+          min: 1
+          max: 14
+          mode: box
+    subject:
+      example: "Matematică"
+      selector:
+        text:
+    start:
+      example: "10:00"
+      selector:
+        text:
+    end:
+      example: "10:50"
+      selector:
+        text:
+    note:
+      example: "Test"
+      selector:
+        text:
+clear_lesson:
+  fields:
+    orar:
+      selector:
+        text:
+    day:
+      required: true
+      selector:
+        select:
+          options: ["luni", "marti", "miercuri", "joi", "vineri"]
+    index:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 14
+          mode: box

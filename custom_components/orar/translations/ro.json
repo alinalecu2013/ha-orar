@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ORAR",
+        "description": "Creează un orar școlar. Poți adăuga câte unul pentru fiecare copil.",
+        "data": { "name": "Numele orarului" }
+      }
+    },
+    "abort": { "already_configured": "Există deja un orar cu acest nume." }
+  },
+  "services": {
+    "set_lesson": {
+      "name": "Setează ora",
+      "description": "Setează materia și/sau orele unei celule din orar.",
+      "fields": {
+        "orar": { "name": "Orar", "description": "Numele orarului (opțional dacă există unul singur)." },
+        "day": { "name": "Zi", "description": "luni, marti, miercuri, joi, vineri." },
+        "index": { "name": "Numărul orei", "description": "Rândul din tabel, începând de la 1." },
+        "subject": { "name": "Materie", "description": "Numele, prescurtarea sau id-ul materiei. Gol = liber." },
+        "start": { "name": "Început", "description": "HH:MM (gol = orele standard)." },
+        "end": { "name": "Sfârșit", "description": "HH:MM (gol = orele standard)." },
+        "note": { "name": "Notiță", "description": "Notiță scurtă (ex: test)." }
+      }
+    },
+    "clear_lesson": {
+      "name": "Golește ora",
+      "description": "Golește o celulă din orar.",
+      "fields": {
+        "orar": { "name": "Orar", "description": "Numele orarului (opțional dacă există unul singur)." },
+        "day": { "name": "Zi", "description": "luni..vineri" },
+        "index": { "name": "Numărul orei", "description": "Rândul din tabel, începând de la 1." }
+      }
+    }
+  }
+}

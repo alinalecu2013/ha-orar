@@ -1,0 +1,13 @@
+{
+  "domain": "orar",
+  "name": "ORAR",
+  "codeowners": ["@alinalecu2013"],
+  "config_flow": true,
+  "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
+  "documentation": "https://github.com/alinalecu2013/ha-orar",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/alinalecu2013/ha-orar/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

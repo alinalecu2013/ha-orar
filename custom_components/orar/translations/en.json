@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ORAR",
+        "description": "Create a school timetable. You can add one for each child.",
+        "data": { "name": "Timetable name" }
+      }
+    },
+    "abort": { "already_configured": "A timetable with this name already exists." }
+  },
+  "services": {
+    "set_lesson": {
+      "name": "Set lesson",
+      "description": "Sets the subject and/or times of a timetable cell.",
+      "fields": {
+        "orar": { "name": "Timetable", "description": "Timetable name (optional if there is only one)." },
+        "day": { "name": "Day", "description": "luni, marti, miercuri, joi, vineri (or mon..fri)." },
+        "index": { "name": "Lesson number", "description": "Row number, starting from 1." },
+        "subject": { "name": "Subject", "description": "Subject name, short name or id. Empty = free." },
+        "start": { "name": "Start", "description": "HH:MM (empty = bell schedule)." },
+        "end": { "name": "End", "description": "HH:MM (empty = bell schedule)." },
+        "note": { "name": "Note", "description": "Short note (e.g. test)." }
+      }
+    },
+    "clear_lesson": {
+      "name": "Clear lesson",
+      "description": "Empties a timetable cell.",
+      "fields": {
+        "orar": { "name": "Timetable", "description": "Timetable name (optional if there is only one)." },
+        "day": { "name": "Day", "description": "luni..vineri" },
+        "index": { "name": "Lesson number", "description": "Row number, starting from 1." }
+      }
+    }
+  }
+}

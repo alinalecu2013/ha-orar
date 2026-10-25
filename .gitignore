@@ -1,0 +1,14 @@
+# Imaginea de referinta (locala, nu se publica)
+/orar_1.jpg
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Editor / sistem
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
