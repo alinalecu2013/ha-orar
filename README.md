@@ -42,7 +42,7 @@ mode: week      # week | today | now | backpack
 `backpack` afișează o listă bifabilă cu ce trebuie pus în ghiozdan pentru ziua următoare.
 
 #### Butoanele din card: Themes · Materii · Orar
-Pentru administratori, cardul are sus trei butoane care deschid editorul direct în card, fără să mai intri în panou:
+Pentru administratori, cardul are sus, peste imaginea de fundal, trei butoane care deschid editorul direct în card, fără să mai intri în panou. Lângă titlul **ORAR** e caseta cu **numele clasei**: o atingi, scrii (ex: „a V-a B”) și apeși Enter.
 
 | Buton | Ce face |
 |---|---|

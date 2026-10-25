@@ -4,7 +4,7 @@
  *  <orar-panel>        panoul din sidebar (editor complet)
  *  <orar-card>         card Lovelace (week | today | now | backpack)
  */
-const ORAR_VERSION = "1.1.0";
+const ORAR_VERSION = "1.2.0";
 const BASE_URL = new URL(".", import.meta.url).href;
 
 const DAYS = [
@@ -64,6 +64,7 @@ const mkDays = (colors, win, opacity, text) =>
 
 const DEFAULT_APPEARANCE = {
   title: "ORAR",
+  class_name: "",
   subtitle: "",
   footer: "Învățătura este o comoară care își urmează stăpânul pretutindeni ✨",
   bg_type: "preset",
@@ -318,7 +319,14 @@ const BOARD_CSS = `
 .twinkle::after{content:"";background-image:radial-gradient(1.8px 1.8px at 15% 35%,#fff,transparent 70%),radial-gradient(2.2px 2.2px at 36% 15%,#ffe9a8,transparent 70%),radial-gradient(1.6px 1.6px at 58% 4%,#fff,transparent 70%),radial-gradient(2px 2px at 77% 30%,#fff,transparent 70%),radial-gradient(1.6px 1.6px at 92% 75%,#fff,transparent 70%),radial-gradient(2px 2px at 9% 80%,#fff,transparent 70%),radial-gradient(2.2px 2.2px at 40% 88%,#fff,transparent 70%),radial-gradient(1.8px 1.8px at 64% 82%,#ffe9a8,transparent 70%);animation:tw 4.1s ease-in-out -2s infinite alternate-reverse}
 @keyframes tw{from{opacity:.15}to{opacity:1}}
 header{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 22px;margin-bottom:clamp(10px,2cqw,26px);text-align:center}
+.toolbar{display:flex;justify-content:flex-end;margin:calc(clamp(14px,2.6cqw,36px) * -.5) calc(clamp(14px,2.6cqw,36px) * -.5) 0}
 .titles{display:flex;flex-direction:column;align-items:center}
+.trow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px clamp(10px,1.6cqw,20px)}
+.classbox{font-family:var(--font-title);font-weight:800;font-size:clamp(20px,3.6cqw,44px);line-height:1;letter-spacing:.04em;color:var(--txt);text-align:center;padding:.18em .5em;border-radius:14px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:2px solid color-mix(in srgb,var(--title) 70%,transparent);box-shadow:0 6px 20px rgba(0,0,0,.18);text-shadow:0 2px 0 rgba(0,0,0,.25);max-width:100%}
+input.classbox{outline:none;min-width:3ch;cursor:text;transition:border-color .2s,background .2s}
+input.classbox::placeholder{color:var(--txt);opacity:.5}
+input.classbox:hover{border-color:var(--title)}
+input.classbox:focus{border-color:var(--title);background:rgba(255,255,255,.24)}
 .title{margin:0;font-family:var(--font-title);font-weight:800;font-size:clamp(34px,7cqw,84px);line-height:.95;color:var(--title);letter-spacing:.04em;text-shadow:0 4px 0 rgba(0,0,0,.25),0 0 30px color-mix(in srgb,var(--title) 40%,transparent)}
 .subtitle{font-size:clamp(13px,1.6cqw,18px);opacity:.9;margin-top:4px;font-weight:600}
 .chip{display:inline-flex;align-items:center;gap:10px;padding:6px 14px 6px 6px;border-radius:999px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);font-weight:600;font-size:clamp(12px,1.4cqw,15px);box-shadow:0 6px 20px rgba(0,0,0,.18)}
@@ -406,6 +414,22 @@ class OrarBoard extends HTMLElement {
     root.addEventListener("dragover", (e) => this._onDragOver(e));
     root.addEventListener("dragleave", (e) => e.target.closest?.(".cell")?.classList.remove("drop"));
     root.addEventListener("drop", (e) => this._onDrop(e));
+    // Caseta cu numele clasei (doar în card, pentru administratori).
+    root.addEventListener("input", (e) => {
+      if (e.target.classList?.contains("classbox")) e.target.size = Math.max(5, e.target.value.length + 1);
+    });
+    root.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target.classList?.contains("classbox")) e.target.blur();
+    });
+    root.addEventListener("change", (e) => {
+      if (e.target.classList?.contains("classbox")) this._emit("orar-class-name", { value: e.target.value.trim() });
+    });
+    root.addEventListener("focusout", (e) => {
+      if (e.target.classList?.contains("classbox") && this._pendingRender) {
+        this._pendingRender = false;
+        setTimeout(() => this._render());
+      }
+    });
   }
 
   set data(v) {
@@ -417,9 +441,10 @@ class OrarBoard extends HTMLElement {
   }
 
   /** Setează mai multe proprietăți cu o singură randare. */
-  configure({ data, editable, brush }) {
+  configure({ data, editable, brush, classEdit }) {
     if (data !== undefined) this._data = data;
     if (editable !== undefined) this._editable = !!editable;
+    if (classEdit !== undefined) this._classEdit = !!classEdit;
     if (brush !== undefined) this._brush = brush;
     this._render();
   }
@@ -456,6 +481,11 @@ class OrarBoard extends HTMLElement {
       root.innerHTML = `<style>${BOARD_CSS}</style><div class="loading">Se încarcă orarul…</div>`;
       return;
     }
+    // Nu redesenăm cât timp se scrie numele clasei (s-ar pierde textul și focusul).
+    if (root.activeElement?.classList.contains("classbox")) {
+      this._pendingRender = true;
+      return;
+    }
     const a = appearanceOf(d);
     const now = new Date();
     const info = nowInfo(d, now);
@@ -483,9 +513,15 @@ class OrarBoard extends HTMLElement {
         <div class="bg" style="background:${esc(backgroundCss(a))}"></div>
         <div class="dim"></div>
         ${a.stars ? `<div class="twinkle"></div>` : ""}
+        <div class="toolbar"><slot name="tools"></slot></div>
         <header>
           <div class="titles">
-            <h1 class="title">${esc(a.title)}</h1>
+            <div class="trow">
+              <h1 class="title">${esc(a.title)}</h1>
+              ${this._classEdit
+                ? `<input class="classbox" maxlength="40" value="${esc(a.class_name)}" placeholder="Clasa" size="${Math.max(5, a.class_name.length + 1)}" title="Numele clasei – scrie și apasă Enter" aria-label="Numele clasei">`
+                : a.class_name ? `<span class="classbox">${esc(a.class_name)}</span>` : ""}
+            </div>
             ${a.subtitle ? `<div class="subtitle">${esc(a.subtitle)}</div>` : ""}
           </div>
           ${a.show_clock ? `<div class="chip"><span class="clock">${pad(now.getHours())}:${pad(now.getMinutes())}</span><span>${chip.emoji} ${esc(chip.text)}</span></div>` : ""}
@@ -1518,7 +1554,8 @@ class OrarPanel extends HTMLElement {
           <h3>🔤 Texte și fonturi</h3>
           <div class="fields">
             <label>Titlu<input maxlength="60" value="${esc(a.title)}" data-bind="appearance.title"></label>
-            <label>Subtitlu<input maxlength="120" value="${esc(a.subtitle)}" data-bind="appearance.subtitle" placeholder="ex: Clasa a V-a B · Ana"></label>
+            <label>Numele clasei<input maxlength="40" value="${esc(a.class_name)}" data-bind="appearance.class_name" placeholder="ex: a V-a B"></label>
+            <label>Subtitlu<input maxlength="120" value="${esc(a.subtitle)}" data-bind="appearance.subtitle" placeholder="ex: Ana · Școala nr. 1"></label>
             <label class="wide">Motto (subsol)<input maxlength="200" value="${esc(a.footer)}" data-bind="appearance.footer"></label>
             <label>Font titlu${fontSel("title_font")}</label>
             <label>Font text${fontSel("body_font")}</label>
@@ -2123,6 +2160,11 @@ ha-card{background:transparent;border:none;box-shadow:none}
 .tbtn:hover{border-color:var(--primary-color,#3f7be0)}
 .tbtn[aria-pressed="true"]{background:var(--primary-color,#3f7be0);border-color:var(--primary-color,#3f7be0);color:var(--text-primary-color,#fff)}
 .tbtn[aria-pressed="true"] ha-icon{color:inherit}
+.tools.over{margin:0 0 6px}
+.tools.over .tbtn{background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-color:rgba(255,255,255,.3);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.tools.over .tbtn ha-icon{color:#fff}
+.tools.over .tbtn:hover{background:rgba(255,255,255,.26);border-color:rgba(255,255,255,.6)}
+.tools.over .tbtn[aria-pressed="true"]{background:var(--primary-color,#3f7be0);border-color:#fff;text-shadow:none}
 .editor{margin-top:10px;padding:14px;border-radius:var(--ha-card-border-radius,16px);background:var(--ha-card-background,var(--card-background-color,#fff));border:1px solid var(--primary-color,#3f7be0);box-shadow:var(--ha-card-box-shadow,none)}
 `;
 
@@ -2144,6 +2186,7 @@ class OrarCard extends HTMLElement {
         <div class="editor" hidden></div>
       </ha-card>`;
     this._el = {
+      card: root.querySelector("ha-card"),
       tools: root.querySelector(".tools"),
       view: root.querySelector(".view"),
       editor: root.querySelector(".editor"),
@@ -2161,6 +2204,7 @@ class OrarCard extends HTMLElement {
     root.addEventListener("orar-cell-click", forward("_onCellClick"));
     root.addEventListener("orar-cell-add", forward("_onCellAdd"));
     root.addEventListener("orar-drop", forward("_onDrop"));
+    root.addEventListener("orar-class-name", (e) => this._saveClassName(e.detail.value));
   }
 
   static getConfigElement() {
@@ -2174,6 +2218,7 @@ class OrarCard extends HTMLElement {
   setConfig(config) {
     const changedEntry = this._config && this._config.entry_id !== config.entry_id;
     this._config = { mode: "week", ...config };
+    this._dockTools(null);
     this._board = null;
     this._el.view.innerHTML = "";
     if (changedEntry) {
@@ -2188,7 +2233,10 @@ class OrarCard extends HTMLElement {
     this._hass = h;
     if (this._panel) this._panel.hass = h;
     if (!this._unsub && this.isConnected) this._connect();
-    if (wasAdmin !== this._isAdmin) this._renderTools();
+    if (wasAdmin !== this._isAdmin) {
+      this._renderTools();
+      this._render();
+    }
   }
 
   get _isAdmin() {
@@ -2249,11 +2297,47 @@ class OrarCard extends HTMLElement {
   }
 
   _error(msg) {
+    this._dockTools(null);
     this._board = null;
     this._el.view.innerHTML = `<div class="err">⚠️ ${esc(msg)}</div>`;
   }
 
   /* ---------------------------------------------------------------- butoane și editor */
+
+  /** Butoanele stau peste fundalul tablei (slotul „tools”) sau, fără tablă, deasupra cardului. */
+  _dockTools(board) {
+    const tools = this._el.tools;
+    if (board) {
+      if (tools.parentNode === board) return;
+      tools.slot = "tools";
+      tools.classList.add("over");
+      board.appendChild(tools);
+    } else if (tools.parentNode !== this._el.card) {
+      tools.removeAttribute("slot");
+      tools.classList.remove("over");
+      this._el.card.prepend(tools);
+    }
+  }
+
+  async _saveClassName(value) {
+    if (!this._isAdmin || !this._data || !this._entryId) return;
+    if ((this._data.appearance?.class_name || "") === value) return;
+    if (this._panel?._data) {
+      // Editorul e deschis: trecem prin el, ca să nu-i suprascriem modificările nesalvate.
+      this._panel._data.appearance.class_name = value;
+      this._panel._touch("appearance");
+      this._panel._renderTab?.();
+      return;
+    }
+    const appearance = { ...(this._data.appearance || {}), class_name: value };
+    this._data = { ...this._data, appearance };
+    this._render();
+    try {
+      await this._hass.callWS({ type: "orar/save", entry_id: this._entryId, data: { appearance } });
+    } catch (err) {
+      this._error(`Numele clasei nu a putut fi salvat: ${err.message || err.code || err}`);
+    }
+  }
 
   _renderTools() {
     const tools = this._el.tools;
@@ -2321,9 +2405,11 @@ class OrarCard extends HTMLElement {
         this._el.view.innerHTML = `<orar-board></orar-board>`;
         this._board = this._el.view.querySelector("orar-board");
       }
-      this._board.configure({ data: this._data, editable: this._open === "days" });
+      this._dockTools(this._board);
+      this._board.configure({ data: this._data, editable: this._open === "days", classEdit: this._isAdmin });
       return;
     }
+    this._dockTools(null);
     this._board = null;
     const d = this._data;
     const a = appearanceOf(d);
@@ -2339,7 +2425,7 @@ class OrarCard extends HTMLElement {
     const label = mode === "backpack" ? "🎒 Ghiozdan" : info.dayKey ? DAY_NAME[info.dayKey].toUpperCase() : "WEEKEND";
     this._el.view.innerHTML = `<div class="mini" style="${esc(vars)}">
         <div class="bg" style="background:${esc(backgroundCss(a))}"></div><div class="dim"></div>
-        <div class="mhead"><span class="mtitle">${esc(a.title)}</span><span class="mday">${esc(label)}</span></div>
+        <div class="mhead"><span class="mtitle">${esc(a.title)}${a.class_name ? ` · ${esc(a.class_name)}` : ""}</span><span class="mday">${esc(label)}</span></div>
         <div class="panel">${body}</div>
       </div>`;
   }

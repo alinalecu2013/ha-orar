@@ -26,6 +26,7 @@ DEFAULT_DAY_COLORS = {
 # cheie: (tip, implicit, extra) – extra = (min, max) pentru numere, listă pentru enum
 APPEARANCE_SPEC: dict[str, tuple[str, Any, Any]] = {
     "title": ("str", "ORAR", 60),
+    "class_name": ("str", "", 40),
     "subtitle": ("str", "", 120),
     "footer": ("str", "Învățătura este o comoară care își urmează stăpânul pretutindeni ✨", 200),
     "bg_type": ("enum", "preset", ["preset", "image", "color"]),
