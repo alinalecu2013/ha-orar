@@ -4,7 +4,7 @@
  *  <orar-panel>        panoul din sidebar (editor complet)
  *  <orar-card>         card Lovelace (week | today | now | backpack)
  */
-const ORAR_VERSION = "1.0.0";
+const ORAR_VERSION = "1.1.0";
 const BASE_URL = new URL(".", import.meta.url).href;
 
 const DAYS = [
@@ -687,10 +687,27 @@ const TABS = [
   { id: "days", icon: "✏️", label: "Zile" },
   { id: "subjects", icon: "📚", label: "Materii" },
   { id: "bells", icon: "🔔", label: "Clopoțel" },
-  { id: "look", icon: "🎨", label: "Aspect" },
+  { id: "look", icon: "🎨", label: "Themes" },
   { id: "holidays", icon: "🏖️", label: "Vacanțe" },
   { id: "settings", icon: "⚙️", label: "Setări" },
 ];
+
+const PANEL_NARROW = `
+  .look{grid-template-columns:1fr}
+  .preview{position:static;order:-1}
+  .slot{grid-template-columns:32px 1fr auto;grid-template-areas:"n s t" "n tm tm" "n no no"}
+  .slot-n{grid-area:n;align-self:start}
+  .slot select{grid-area:s}
+  .slot-tools{grid-area:t}
+  .slot-times{grid-area:tm}
+  .slot-note{grid-area:no}
+  .dayrow{grid-template-columns:1fr 1fr 1fr}
+  .dayrow .pill-sm{grid-column:1 / -1}
+  .hol{grid-template-columns:1fr 1fr}
+  .hol input:first-child{grid-column:1 / -1}
+  .fields{grid-template-columns:1fr}
+  main{padding:10px}
+`;
 
 const PANEL_CSS = `
 :host{display:block;height:100%;--accent:var(--primary-color,#3f7be0);color:var(--primary-text-color,#1d2340);background:var(--primary-background-color,#f2f4f8);font-family:var(--paper-font-body1_-_font-family,Roboto,sans-serif)}
@@ -745,8 +762,9 @@ label.inline{flex-direction:row;align-items:center;gap:8px;font-size:14px;color:
 .daypill.sel{opacity:1;transform:scale(1.06);box-shadow:0 6px 16px color-mix(in srgb,var(--c) 50%,transparent)}
 .slot{display:grid;grid-template-columns:36px minmax(160px,1.4fr) auto minmax(120px,1fr) auto;gap:10px;align-items:center;padding:10px;border-radius:14px;background:color-mix(in srgb,var(--c) 10%,var(--card-background-color,#fff));border-left:6px solid var(--c);margin-bottom:8px}
 .slot-n{width:30px;height:30px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-weight:800}
-.slot-times{display:flex;align-items:center;gap:6px}
+.slot-times{display:flex;align-items:flex-end;gap:6px}
 .slot-times input{width:108px}
+.slot-times label{font-size:11px}
 .slot-times input.ovr{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .slot-tools{display:flex;gap:4px}
 .icon-btn{border:none;background:transparent;border-radius:8px;width:32px;height:32px;display:grid;place-items:center;font-size:16px;color:var(--primary-text-color,#1d2340)}
@@ -809,22 +827,21 @@ pre{background:var(--secondary-background-color,#f3f4f8);border-radius:12px;padd
 .icon-grid button:hover{background:var(--accent);color:#fff}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#1d2340;color:#fff;padding:12px 20px;border-radius:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:transform .35s cubic-bezier(.2,1.3,.5,1);z-index:200;max-width:90vw}
 #toast.show{transform:translateX(-50%) translateY(0)}
-@media (max-width:900px){
-  .look{grid-template-columns:1fr}
-  .preview{position:static;order:-1}
-  .slot{grid-template-columns:32px 1fr auto;grid-template-areas:"n s t" "n tm tm" "n no no"}
-  .slot-n{grid-area:n;align-self:start}
-  .slot select{grid-area:s}
-  .slot-tools{grid-area:t}
-  .slot-times{grid-area:tm}
-  .slot-note{grid-area:no}
-  .dayrow{grid-template-columns:1fr 1fr 1fr}
-  .dayrow .pill-sm{grid-column:1 / -1}
-  .hol{grid-template-columns:1fr 1fr}
-  .hol input:first-child{grid-column:1 / -1}
-  .fields{grid-template-columns:1fr}
-  main{padding:10px}
-}
+/* reguli pentru ecrane înguste: se aplică după fereastră (panou) și după lățimea containerului (card) */
+@media (max-width:900px){${PANEL_NARROW}}
+@container orar (max-width:900px){${PANEL_NARROW}}
+:host([embed]){height:auto;background:transparent}
+.shell{container:orar / inline-size}
+.shell.embed{height:auto}
+.embed main{overflow:visible;padding:0}
+.embed .card{box-shadow:none}
+.embed .look{grid-template-columns:1fr}
+.embed .preview{display:none}
+.ehead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.etitle{flex:1;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px}
+.etitle ha-icon{color:var(--accent)}
+.embed .save-state{font-size:12px;color:var(--secondary-text-color,#5f6680)}
+
 `;
 
 class OrarPanel extends HTMLElement {
@@ -879,6 +896,30 @@ class OrarPanel extends HTMLElement {
     return !!this._hass?.user?.is_admin;
   }
 
+  /**
+   * Mod încorporat în cardul Lovelace: un singur tab (Themes / Materii / Orar), fără bara de sus.
+   * Se poate apela din nou ca să schimbi tabul.
+   */
+  setEmbed({ tab, entryId, linked = false }) {
+    const changedEntry = this._embed && entryId && entryId !== this._entryId;
+    this._embed = true;
+    this._tab = tab;
+    this._embedLinked = linked;
+    this._fixedEntry = entryId;
+    this.setAttribute("embed", "");
+    if (!this._hass) return;
+    if (changedEntry) {
+      this._entryId = entryId;
+      this._subscribe();
+    }
+    this._renderShell();
+  }
+
+  /** În modul încorporat, cardul primește datele modificate imediat (fără să aștepte serverul). */
+  _emitPreview() {
+    if (this._embed && this._data) this.dispatchEvent(new CustomEvent("orar-preview", { detail: this._data }));
+  }
+
   connectedCallback() {
     window.addEventListener("keydown", this._onKey);
     if (this._hass && this._entryId && !this._unsub) this._subscribe();
@@ -898,7 +939,7 @@ class OrarPanel extends HTMLElement {
       this._entries = [];
     }
     if (this._entries.length) {
-      const saved = localGet("orar.entry");
+      const saved = this._fixedEntry || localGet("orar.entry");
       this._entryId = (this._entries.find((e) => e.entry_id === saved) || this._entries[0]).entry_id;
       this._subscribe();
     }
@@ -930,6 +971,23 @@ class OrarPanel extends HTMLElement {
   /* ---------------------------------------------------------------- schelet */
 
   _renderShell() {
+    if (this._embed) {
+      const t = TABS.find((x) => x.id === this._tab) || TABS[0];
+      const icon = { look: "mdi:palette-outline", subjects: "mdi:bookshelf", days: "mdi:clock-edit-outline" }[t.id] || "mdi:timetable";
+      this.shadowRoot.innerHTML = `<style>${PANEL_CSS}</style>
+        <div class="shell embed">
+          <div class="ehead">
+            <span class="etitle"><ha-icon icon="${icon}"></ha-icon>${t.id === "days" ? "Orar: materii și ore" : t.label}</span>
+            <span class="save-state" id="save-state"></span>
+            <button class="icon-btn" data-action="embed-close" title="Închide">✕</button>
+          </div>
+          <main id="content"></main>
+          <div id="modal"></div>
+          <div id="toast"></div>
+        </div>`;
+      this._renderTab();
+      return;
+    }
     const entries = this._entries || [];
     const tabs = this.isAdmin ? TABS : TABS.slice(0, 1);
     this.shadowRoot.innerHTML = `<style>${PANEL_CSS}</style>
@@ -983,6 +1041,7 @@ class OrarPanel extends HTMLElement {
 
   _refreshBoards() {
     this.shadowRoot.querySelectorAll("orar-board").forEach((b) => (b.data = this._data));
+    this._emitPreview();
   }
 
   /* ---------------------------------------------------------------- salvare */
@@ -991,6 +1050,7 @@ class OrarPanel extends HTMLElement {
     keys.forEach((k) => this._dirty.add(k));
     this._lastEdit = Date.now();
     this._setSaveState("pending");
+    queueMicrotask(() => this._emitPreview());
     clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => this._flush(), 600);
   }
@@ -1255,9 +1315,8 @@ class OrarPanel extends HTMLElement {
           ${d.subjects.map((x) => `<option value="${x.id}" ${x.id === c.subject ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
         </select>
         <div class="slot-times">
-          <input type="time" class="${c.start ? "ovr" : ""}" value="${esc(c.start || p.start || "")}" data-time="start" data-i="${i}" title="Început">
-          <span>–</span>
-          <input type="time" class="${c.end ? "ovr" : ""}" value="${esc(c.end || p.end || "")}" data-time="end" data-i="${i}" title="Sfârșit">
+          <label>Început<input type="time" class="${c.start ? "ovr" : ""}" value="${esc(c.start || p.start || "")}" data-time="start" data-i="${i}"></label>
+          <label>Sfârșit<input type="time" class="${c.end ? "ovr" : ""}" value="${esc(c.end || p.end || "")}" data-time="end" data-i="${i}"></label>
           ${c.start || c.end ? `<button class="icon-btn" data-action="slot-reset" data-i="${i}" title="Revino la orele standard">↺</button>` : ""}
         </div>
         <input class="slot-note" maxlength="200" placeholder="📝 notiță" value="${esc(c.note)}" data-bind="schedule.${day}.${i}.note" data-live>
@@ -1272,6 +1331,7 @@ class OrarPanel extends HTMLElement {
     return `<div class="card">
         <h3>✏️ Editează orarul pe zile</h3>
         <div class="daypills">${pills}</div>
+        ${this._embedLinked ? `<div class="note">👆 Poți atinge și direct o celulă din orarul de mai sus ca să alegi materia, ora de început și ora de sfârșit.</div>` : ""}
         ${rows || `<div class="empty-state">Nicio oră în ${DAY_NAME[day]}. Adaugă prima oră 👇</div>`}
         <div class="row" style="margin-top:12px">
           <button class="primary" data-action="slot-add">＋ Adaugă oră</button>
@@ -1738,6 +1798,10 @@ action:
     const day = this._editDay;
 
     switch (a.action) {
+      case "embed-close":
+        this.dispatchEvent(new CustomEvent("orar-embed-close"));
+        break;
+
       /* orar */
       case "toggle-edit":
         this._editMode = !this._editMode;
@@ -2012,7 +2076,7 @@ action:
 const CARD_CSS = `
 :host{display:block}
 *{box-sizing:border-box}
-ha-card{overflow:hidden;background:transparent;border:none}
+ha-card{background:transparent;border:none;box-shadow:none}
 .mini{position:relative;isolation:isolate;overflow:hidden;border-radius:var(--ha-card-border-radius,16px);padding:16px;color:var(--txt);font-family:var(--font-body);min-height:120px}
 .bg{position:absolute;inset:0;z-index:-2}
 .dim{position:absolute;inset:0;z-index:-1;background:rgba(0,0,0,var(--dim))}
@@ -2051,14 +2115,52 @@ ha-card{overflow:hidden;background:transparent;border:none}
 .check input{width:20px;height:20px;accent-color:var(--day)}
 .check.done span{text-decoration:line-through;opacity:.5}
 .packbar{padding:10px 14px;font-weight:700;font-size:13px;display:flex;justify-content:space-between}
-.err{padding:16px}
+.err{padding:16px;border-radius:var(--ha-card-border-radius,16px);background:var(--ha-card-background,var(--card-background-color,#fff))}
+.tools{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-bottom:8px}
+.tools[hidden],.editor[hidden]{display:none}
+.tbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px 6px 10px;border-radius:999px;border:1px solid var(--divider-color,rgba(0,0,0,.12));background:var(--ha-card-background,var(--card-background-color,#fff));color:var(--primary-text-color,#1d2340);font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.tbtn ha-icon{--mdc-icon-size:18px;color:var(--primary-color,#3f7be0)}
+.tbtn:hover{border-color:var(--primary-color,#3f7be0)}
+.tbtn[aria-pressed="true"]{background:var(--primary-color,#3f7be0);border-color:var(--primary-color,#3f7be0);color:var(--text-primary-color,#fff)}
+.tbtn[aria-pressed="true"] ha-icon{color:inherit}
+.editor{margin-top:10px;padding:14px;border-radius:var(--ha-card-border-radius,16px);background:var(--ha-card-background,var(--card-background-color,#fff));border:1px solid var(--primary-color,#3f7be0);box-shadow:var(--ha-card-box-shadow,none)}
 `;
+
+const CARD_BUTTONS = [
+  { id: "look", icon: "mdi:palette-outline", label: "Themes", title: "Teme, fundal, culorile și transparența zilelor" },
+  { id: "subjects", icon: "mdi:bookshelf", label: "Materii", title: "Baza de date de materii" },
+  { id: "days", icon: "mdi:clock-edit-outline", label: "Orar", title: "Materia, ora de început și ora de sfârșit pentru fiecare oră" },
+];
 
 class OrarCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this.shadowRoot.addEventListener("change", (e) => this._onCheck(e));
+    const root = this.shadowRoot;
+    root.innerHTML = `<style>${CARD_CSS}</style>
+      <ha-card>
+        <div class="tools" hidden></div>
+        <div class="view"></div>
+        <div class="editor" hidden></div>
+      </ha-card>`;
+    this._el = {
+      tools: root.querySelector(".tools"),
+      view: root.querySelector(".view"),
+      editor: root.querySelector(".editor"),
+    };
+    this._open = null;
+    root.addEventListener("change", (e) => this._onCheck(e));
+    this._el.tools.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-open]");
+      if (btn) this._toggleEditor(btn.dataset.open);
+    });
+    // În modul „Orar”, celulele din tabla cardului deschid dialogul de editare din editor.
+    const forward = (method) => (e) => {
+      if (this._open === "days" && this._panel && e.target === this._board) this._panel[method](e.detail);
+    };
+    root.addEventListener("orar-cell-click", forward("_onCellClick"));
+    root.addEventListener("orar-cell-add", forward("_onCellAdd"));
+    root.addEventListener("orar-drop", forward("_onDrop"));
   }
 
   static getConfigElement() {
@@ -2073,13 +2175,28 @@ class OrarCard extends HTMLElement {
     const changedEntry = this._config && this._config.entry_id !== config.entry_id;
     this._config = { mode: "week", ...config };
     this._board = null;
-    if (changedEntry) this._resubscribe();
-    else this._render();
+    this._el.view.innerHTML = "";
+    if (changedEntry) {
+      this._closeEditor();
+      this._resubscribe();
+    } else this._render();
+    this._renderTools();
   }
 
   set hass(h) {
+    const wasAdmin = this._isAdmin;
     this._hass = h;
+    if (this._panel) this._panel.hass = h;
     if (!this._unsub && this.isConnected) this._connect();
+    if (wasAdmin !== this._isAdmin) this._renderTools();
+  }
+
+  get _isAdmin() {
+    return !!this._hass?.user?.is_admin;
+  }
+
+  get _showButtons() {
+    return this._isAdmin && (this._config?.buttons ?? this._config?.mode === "week");
   }
 
   connectedCallback() {
@@ -2132,18 +2249,79 @@ class OrarCard extends HTMLElement {
   }
 
   _error(msg) {
-    this.shadowRoot.innerHTML = `<style>${CARD_CSS}</style><ha-card><div class="err">⚠️ ${esc(msg)}</div></ha-card>`;
+    this._board = null;
+    this._el.view.innerHTML = `<div class="err">⚠️ ${esc(msg)}</div>`;
   }
+
+  /* ---------------------------------------------------------------- butoane și editor */
+
+  _renderTools() {
+    const tools = this._el.tools;
+    const show = this._showButtons;
+    tools.hidden = !show;
+    if (!show) {
+      if (this._open) this._closeEditor();
+      tools.innerHTML = "";
+      return;
+    }
+    tools.innerHTML = CARD_BUTTONS.map((b) => `<button class="tbtn" data-open="${b.id}" title="${esc(b.title)}" aria-pressed="${this._open === b.id}">
+        <ha-icon icon="${b.icon}"></ha-icon><span>${b.label}</span></button>`).join("");
+  }
+
+  _toggleEditor(id) {
+    if (this._open === id) this._closeEditor();
+    else this._openEditor(id);
+  }
+
+  _openEditor(id) {
+    if (!this._entryId) return;
+    this._open = id;
+    const linked = id === "days" && this._config.mode === "week";
+    if (!this._panel) {
+      this._panel = document.createElement("orar-panel");
+      this._panel.addEventListener("orar-preview", (e) => {
+        this._data = clone(e.detail);
+        this._render();
+      });
+      this._panel.addEventListener("orar-embed-close", () => this._closeEditor());
+      this._panel.setEmbed({ tab: id, entryId: this._entryId, linked });
+      this._el.editor.appendChild(this._panel);
+      this._panel.hass = this._hass;
+    } else {
+      this._panel.setEmbed({ tab: id, entryId: this._entryId, linked });
+    }
+    this._el.editor.hidden = false;
+    this._renderTools();
+    this._render();
+    // Pe telefon editorul poate fi sub ecran: îl aducem în față.
+    requestAnimationFrame(() => {
+      const box = this._el.editor.getBoundingClientRect();
+      if (box.top < 0 || box.top > window.innerHeight * 0.6) {
+        (linked ? this._el.tools : this._el.editor).scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  _closeEditor() {
+    this._open = null;
+    this._panel?.remove();
+    this._panel = null;
+    this._el.editor.hidden = true;
+    this._renderTools();
+    this._render();
+  }
+
+  /* ---------------------------------------------------------------- afișare */
 
   _render() {
     if (!this._data || !this._config) return;
     const mode = this._config.mode;
     if (mode === "week") {
       if (!this._board) {
-        this.shadowRoot.innerHTML = `<style>${CARD_CSS}</style><ha-card><orar-board></orar-board></ha-card>`;
-        this._board = this.shadowRoot.querySelector("orar-board");
+        this._el.view.innerHTML = `<orar-board></orar-board>`;
+        this._board = this._el.view.querySelector("orar-board");
       }
-      this._board.data = this._data;
+      this._board.configure({ data: this._data, editable: this._open === "days" });
       return;
     }
     this._board = null;
@@ -2159,12 +2337,11 @@ class OrarCard extends HTMLElement {
     ].join(";");
     const body = mode === "now" ? this._nowHtml(d, info) : mode === "backpack" ? this._packHtml(d, a) : this._todayHtml(d, info);
     const label = mode === "backpack" ? "🎒 Ghiozdan" : info.dayKey ? DAY_NAME[info.dayKey].toUpperCase() : "WEEKEND";
-    this.shadowRoot.innerHTML = `<style>${CARD_CSS}</style>
-      <ha-card><div class="mini" style="${esc(vars)}">
+    this._el.view.innerHTML = `<div class="mini" style="${esc(vars)}">
         <div class="bg" style="background:${esc(backgroundCss(a))}"></div><div class="dim"></div>
         <div class="mhead"><span class="mtitle">${esc(a.title)}</span><span class="mday">${esc(label)}</span></div>
         <div class="panel">${body}</div>
-      </div></ha-card>`;
+      </div>`;
   }
 
   _lessonStyle(s) {
@@ -2283,10 +2460,13 @@ class OrarCardEditor extends HTMLElement {
         <select data-k="mode" style="padding:8px;border-radius:8px">
           ${modes.map(([v, l]) => `<option value="${v}" ${c.mode === v ? "selected" : ""}>${l}</option>`).join("")}
         </select></label>
+      <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:600">
+        <input type="checkbox" data-k="buttons" ${c.buttons ?? c.mode === "week" ? "checked" : ""} style="width:18px;height:18px">
+        Butoanele Themes / Materii / Orar (vizibile doar pentru administratori)</label>
     </div>`;
-    this.querySelectorAll("select").forEach((s) =>
+    this.querySelectorAll("select, input").forEach((s) =>
       s.addEventListener("change", () => {
-        const cfg = { ...this._config, [s.dataset.k]: s.value };
+        const cfg = { ...this._config, [s.dataset.k]: s.type === "checkbox" ? s.checked : s.value };
         if (!cfg.entry_id) delete cfg.entry_id;
         this._config = cfg;
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));

@@ -12,7 +12,7 @@ ore de început și de sfârșit pentru fiecare materie, editor complet direct d
 | **✏️ Zile** | Meniu pe fiecare zi: alegi materia din baza de date, setezi orele, muți rândurile, copiezi o zi în alta |
 | **📚 Materii** | Baza de date de materii: nume, prescurtare, culoare, iconiță, profesor, sală, ce iei în ghiozdan, observații |
 | **🔔 Clopoțel** | Orele standard, plus un generator (prima oră, durata, pauze, pauza mare) |
-| **🎨 Aspect** | 8 teme rapide, fundal (8 fundaluri predefinite, **imaginea ta** sau o culoare), întunecare și estompare a fundalului, stele animate, **culoarea antetului, a ferestrei și a textului, plus transparența ferestrei, separat pentru fiecare zi**, efect de sticlă, colțuri, fonturi, titlu, subtitlu, motto, mod „Rânduri” sau „Cronologic” (cu linia „acum”) |
+| **🎨 Themes** | 8 teme rapide, fundal (8 fundaluri predefinite, **imaginea ta** sau o culoare), întunecare și estompare a fundalului, stele animate, **culoarea antetului, a ferestrei și a textului, plus transparența ferestrei, separat pentru fiecare zi**, efect de sticlă, colțuri, fonturi, titlu, subtitlu, motto, mod „Rânduri” sau „Cronologic” (cu linia „acum”) |
 | **🏖️ Vacanțe** | Intervale în care orarul nu se aplică |
 | **⚙️ Setări** | Export și import JSON, exemple de automatizări |
 
@@ -37,8 +37,21 @@ estompează orele trecute și devine un carusel pe telefon.
 type: custom:orar-card
 mode: week      # week | today | now | backpack
 # entry_id: ...  # opțional, dacă ai mai multe orare
+# buttons: true  # butoanele Themes / Materii / Orar (implicit doar în modul week)
 ```
 `backpack` afișează o listă bifabilă cu ce trebuie pus în ghiozdan pentru ziua următoare.
+
+#### Butoanele din card: Themes · Materii · Orar
+Pentru administratori, cardul are sus trei butoane care deschid editorul direct în card, fără să mai intri în panou:
+
+| Buton | Ce face |
+|---|---|
+| 🎨 **Themes** | Teme rapide, fundal (imaginea ta, fundaluri predefinite sau o culoare), culoarea și transparența ferestrei pentru fiecare zi, fonturi, afișare |
+| 📚 **Materii** | Definești materiile care apar în orar: nume, prescurtare, culoare, iconiță, profesor, sală, ce iei în ghiozdan |
+| 🕐 **Orar** | Pentru fiecare zi și fiecare oră: materia, **ora de început** și **ora de sfârșit**. Poți atinge și direct o celulă din tabla de deasupra |
+
+Modificările se văd imediat în card și se salvează pe server, deci apar pe toate dispozitivele.
+Un exemplu complet de dashboard e în [`dashboards/orar-dashboard.yaml`](dashboards/orar-dashboard.yaml).
 
 ## 📦 Instalare
 1. Copiază folderul `custom_components/orar` în `config/custom_components/orar` din Home Assistant

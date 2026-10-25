@@ -1,0 +1,121 @@
+# Dashboard ORAR – se lipește în Setări → Dashboard-uri → (dashboard nou) → ⋮ → Editează → ⋮ → Editor de configurare brută.
+# Entitățile de mai jos corespund unui orar numit „Orar”. Dacă l-ai numit altfel (de ex. „Orar Ana”),
+# înlocuiește prefixul „orar_” cu numele lui (de ex. „orar_ana_”) – find & replace.
+title: Orar
+views:
+  # ------------------------------------------------------------------ AZI
+  - title: Azi
+    path: azi
+    icon: mdi:school
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Acum
+            icon: mdi:timer-sand
+            badges:
+              - type: entity
+                entity: binary_sensor.orar_la_scoala
+                show_state: true
+                show_icon: true
+                color: green
+          - type: custom:orar-card
+            mode: now
+            grid_options:
+              columns: full
+          - type: tile
+            entity: sensor.orar_materia_curenta
+            name: Materia curentă
+            vertical: false
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.orar_urmatoarea_materie
+            name: Urmează
+            grid_options:
+              columns: 6
+          - type: markdown
+            content: >-
+              {% set c = states.sensor.orar_materia_curenta %}
+              {% set n = states.sensor.orar_urmatoarea_materie %}
+              {% set end = states('sensor.orar_final_ore_azi') %}
+              **{{ c.attributes.status_text }}**
+              {%- if c.attributes.remaining_minutes is not none %} · mai sunt **{{ c.attributes.remaining_minutes }} min**{% endif %}
+
+              {% if n.state not in ['unknown', 'unavailable', 'None'] -%}
+              ⏭️ Urmează **{{ n.state }}**
+              {%- if n.attributes.start %} la {{ n.attributes.start }}{% endif %}
+              {%- if n.attributes.day %} ({{ n.attributes.day }}){% endif %}
+              {%- if n.attributes.minutes_until is not none %}, peste {{ n.attributes.minutes_until }} min{% endif %}
+              {%- endif %}
+
+              {% if end not in ['unknown', 'unavailable'] -%}
+              🔔 Ultimul clopoțel azi: **{{ as_timestamp(end) | timestamp_custom('%H:%M') }}**
+              {%- endif %}
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Orele de azi
+            icon: mdi:calendar-today
+            badges:
+              - type: entity
+                entity: sensor.orar_ore_azi
+                show_state: true
+          - type: custom:orar-card
+            mode: today
+            grid_options:
+              columns: full
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Ghiozdanul de mâine
+            icon: mdi:bag-personal
+            badges:
+              - type: entity
+                entity: sensor.orar_ghiozdan
+                show_state: true
+          - type: custom:orar-card
+            mode: backpack
+            grid_options:
+              columns: full
+          - type: markdown
+            content: >-
+              {% set p = states.sensor.orar_ghiozdan %}
+              {% if p.attributes['items'] %}
+              **De luat pentru {{ p.attributes.day }}:**
+              {% for it in p.attributes['items'] %}
+              - {{ it }}
+              {%- endfor %}
+              {% else %}
+              Nimic special de luat. 🎉
+              {% endif %}
+
+  # ------------------------------------------------------------------ SĂPTĂMÂNA
+  - title: Săptămâna
+    path: saptamana
+    icon: mdi:timetable
+    type: panel
+    cards:
+      - type: custom:orar-card
+        mode: week
+
+  # ------------------------------------------------------------------ CALENDAR
+  - title: Calendar
+    path: calendar
+    icon: mdi:calendar-month
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        column_span: 2
+        cards:
+          - type: calendar
+            initial_view: listWeek
+            entities:
+              - calendar.orar_orar
+            grid_options:
+              columns: full
