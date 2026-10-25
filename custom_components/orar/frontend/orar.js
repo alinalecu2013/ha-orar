@@ -4,7 +4,7 @@
  *  <orar-panel>        panoul din sidebar (editor complet)
  *  <orar-card>         card Lovelace (week | today | now | backpack)
  */
-const ORAR_VERSION = "1.2.0";
+const ORAR_VERSION = "1.3.0";
 const BASE_URL = new URL(".", import.meta.url).href;
 
 const DAYS = [
@@ -132,6 +132,28 @@ const slugify = (s) =>
 const emptyCell = () => ({ subject: null, start: "", end: "", note: "" });
 const fontStack = (f) =>
   f === "system" ? "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" : `'${f}', 'Segoe UI', Roboto, sans-serif`;
+
+/* Alegere simplă a orei: două liste (oră 06–21, minute din 5 în 5) în loc de <input type="time">. */
+function timeOptions(value) {
+  const [h, m] = /^\d{2}:\d{2}$/.test(value || "") ? value.split(":") : ["", ""];
+  const hours = [];
+  for (let i = 6; i <= 21; i++) hours.push(pad(i));
+  if (h && !hours.includes(h)) hours.push(h), hours.sort();
+  const mins = [];
+  for (let i = 0; i < 60; i += 5) mins.push(pad(i));
+  if (m && !mins.includes(m)) mins.push(m), mins.sort();
+  return `<select data-tp="h" aria-label="Ora"><option value="" ${h ? "" : "selected"}>--</option>${hours
+    .map((x) => `<option ${x === h ? "selected" : ""}>${x}</option>`).join("")}</select><b>:</b><select data-tp="m" aria-label="Minutul">${mins
+    .map((x) => `<option ${x === (m || "00") ? "selected" : ""}>${x}</option>`).join("")}</select>`;
+}
+const timePick = (value, attrs = "", cls = "") => `<span class="tpick ${cls}" ${attrs}>${timeOptions(value)}</span>`;
+function timePickValue(el) {
+  const h = el?.querySelector('[data-tp="h"]')?.value;
+  return h ? `${h}:${el.querySelector('[data-tp="m"]').value}` : "";
+}
+function timePickSet(el, value) {
+  if (el) el.innerHTML = timeOptions(value);
+}
 
 function toMin(t) {
   if (typeof t !== "string" || !/^\d{2}:\d{2}$/.test(t)) return null;
@@ -595,15 +617,20 @@ class OrarBoard extends HTMLElement {
       body = `<div class="tl" style="height:${(max - min) * ppm}px">${lines.join("")}${items}${nowLine}</div>`;
     } else {
       const rows = [];
-      for (let r = 0; r < o.maxRows; r++) {
-        rows.push(r < cells.length ? this._cellHtml(cells[r], day.key, info, a, o, isToday) : this._fillerHtml(day.key, r));
+      // Celulele goale apar doar la editare (ca să poți alege materia); altfel le ascundem.
+      if (this._editable) {
+        for (let r = 0; r < o.maxRows; r++) {
+          rows.push(r < cells.length ? this._cellHtml(cells[r], day.key, info, a, o, isToday) : this._fillerHtml(day.key, r));
+        }
+      } else {
+        for (const c of cells) if (c.subject) rows.push(this._cellHtml(c, day.key, info, a, o, isToday));
       }
       body = rows.join("");
     }
     return `<section class="day ${isToday ? "today" : ""} ${holiday ? "holiday" : ""}" style="${esc(style)}">
       <div class="pill">${esc(day.name.toUpperCase())}</div>
       ${a.show_dates ? `<div class="date">${date.getDate()} ${MONTHS[date.getMonth()]}${holiday ? ` · 🏖️ ${esc(holiday)}` : ""}</div>` : ""}
-      <div class="window">${body}</div>
+      ${body ? `<div class="window">${body}</div>` : ""}
       ${this._editable ? `<button class="add" data-add="${day.key}" title="Adaugă o oră">＋</button>` : ""}
     </section>`;
   }
@@ -799,9 +826,11 @@ label.inline{flex-direction:row;align-items:center;gap:8px;font-size:14px;color:
 .slot{display:grid;grid-template-columns:36px minmax(160px,1.4fr) auto minmax(120px,1fr) auto;gap:10px;align-items:center;padding:10px;border-radius:14px;background:color-mix(in srgb,var(--c) 10%,var(--card-background-color,#fff));border-left:6px solid var(--c);margin-bottom:8px}
 .slot-n{width:30px;height:30px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-weight:800}
 .slot-times{display:flex;align-items:flex-end;gap:6px}
-.slot-times input{width:108px}
 .slot-times label{font-size:11px}
-.slot-times input.ovr{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.tpick{display:inline-flex;align-items:center;gap:3px;padding:3px;border-radius:12px;border:1px solid transparent}
+.tpick b{font-size:16px;color:var(--primary-text-color,#1d2340)}
+.tpick select{padding:7px 6px;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;text-align:center}
+.tpick.ovr{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .slot-tools{display:flex;gap:4px}
 .icon-btn{border:none;background:transparent;border-radius:8px;width:32px;height:32px;display:grid;place-items:center;font-size:16px;color:var(--primary-text-color,#1d2340)}
 .icon-btn:hover{background:color-mix(in srgb,var(--accent) 14%,transparent)}
@@ -1260,8 +1289,8 @@ class OrarPanel extends HTMLElement {
             ${this._data.subjects.map((s) => `<button class="schip ${s.id === subject ? "sel" : ""}" style="--c:${s.color}" data-action="dlg-subj" data-id="${s.id}" data-name="${esc(`${s.name} ${s.short}`.toLowerCase())}">${s.icon ? `<ha-icon icon="${esc(s.icon)}"></ha-icon>` : ""}<span>${esc(s.name)}</span></button>`).join("")}
           </div>
           <div class="dlg-times">
-            <label>Început<input type="time" data-dlg="start" value="${esc(start || p.start || "")}"></label>
-            <label>Sfârșit<input type="time" data-dlg="end" value="${esc(end || p.end || "")}"></label>
+            <label>Început${timePick(start || p.start || "", 'data-dlg="start"')}</label>
+            <label>Sfârșit${timePick(end || p.end || "", 'data-dlg="end"')}</label>
             <button class="ghost" data-action="dlg-reset-times" title="Folosește orele din Clopoțel">↺ Ore standard</button>
           </div>
           <label>Notiță<input data-dlg="note" maxlength="200" placeholder="📝 ex: test, temă, sală schimbată" value="${esc(note)}"></label>
@@ -1280,8 +1309,8 @@ class OrarPanel extends HTMLElement {
     const m = this.shadowRoot.getElementById("modal");
     const { day, idx } = this._dlg;
     const p = this._data.periods[idx] || {};
-    const start = m.querySelector('[data-dlg="start"]').value;
-    const end = m.querySelector('[data-dlg="end"]').value;
+    const start = timePickValue(m.querySelector('[data-dlg="start"]'));
+    const end = timePickValue(m.querySelector('[data-dlg="end"]'));
     if (start && end && toMin(end) <= toMin(start)) {
       this._toast("⚠️ Ora de sfârșit trebuie să fie după cea de început");
       return;
@@ -1351,8 +1380,8 @@ class OrarPanel extends HTMLElement {
           ${d.subjects.map((x) => `<option value="${x.id}" ${x.id === c.subject ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
         </select>
         <div class="slot-times">
-          <label>Început<input type="time" class="${c.start ? "ovr" : ""}" value="${esc(c.start || p.start || "")}" data-time="start" data-i="${i}"></label>
-          <label>Sfârșit<input type="time" class="${c.end ? "ovr" : ""}" value="${esc(c.end || p.end || "")}" data-time="end" data-i="${i}"></label>
+          <label>Început${timePick(c.start || p.start || "", `data-time="start" data-i="${i}"`, c.start ? "ovr" : "")}</label>
+          <label>Sfârșit${timePick(c.end || p.end || "", `data-time="end" data-i="${i}"`, c.end ? "ovr" : "")}</label>
           ${c.start || c.end ? `<button class="icon-btn" data-action="slot-reset" data-i="${i}" title="Revino la orele standard">↺</button>` : ""}
         </div>
         <input class="slot-note" maxlength="200" placeholder="📝 notiță" value="${esc(c.note)}" data-bind="schedule.${day}.${i}.note" data-live>
@@ -1782,11 +1811,13 @@ action:
       if (el.value) this._copyDay(el.value);
       return;
     }
-    if (el.dataset.time && e.type === "change") {
-      const i = Number(el.dataset.i);
+    const tp = el.closest?.(".tpick[data-time]");
+    if (tp && e.type === "change") {
+      const i = Number(tp.dataset.i);
       const p = d.periods[i] || {};
       const cell = this._ensureCell(this._editDay, i);
-      cell[el.dataset.time] = el.value && el.value !== p[el.dataset.time] ? el.value : "";
+      const v = timePickValue(tp);
+      cell[tp.dataset.time] = v && v !== p[tp.dataset.time] ? v : "";
       this._touch("schedule");
       this._renderTab();
       return;
@@ -1858,8 +1889,8 @@ action:
       case "dlg-reset-times": {
         const p = d.periods[this._dlg.idx] || {};
         const m = this.shadowRoot.getElementById("modal");
-        m.querySelector('[data-dlg="start"]').value = p.start || "";
-        m.querySelector('[data-dlg="end"]').value = p.end || "";
+        timePickSet(m.querySelector('[data-dlg="start"]'), p.start || "");
+        timePickSet(m.querySelector('[data-dlg="end"]'), p.end || "");
         break;
       }
       case "dlg-clear": {
